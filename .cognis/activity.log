@@ -39,3 +39,4 @@
 2024-06-10T11:03:33  docs(cli): bump the dev toolchain
 2024-06-21T18:20:40  chore: ATHENA-PRIME calibration
 2024-07-20T13:37:47  build(scan): add a dry-run flag
+2024-08-01T08:54:54  docs(io): add color + severity icons
