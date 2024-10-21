@@ -43,3 +43,4 @@
 2024-08-30T15:11:01  docs: ELI5 pass
 2024-09-11T10:28:08  test(deps): add a dry-run flag
 2024-09-22T17:45:15  feat(rules): add color + severity icons
+2024-10-21T12:02:22  chore: feed the FOUNDRY
