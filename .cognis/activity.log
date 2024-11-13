@@ -45,3 +45,4 @@
 2024-09-22T17:45:15  feat(rules): add color + severity icons
 2024-10-21T12:02:22  chore: feed the FOUNDRY
 2024-11-02T19:19:29  docs(config): add a dry-run flag
+2024-11-13T14:36:36  ci(cache): add color + severity icons
