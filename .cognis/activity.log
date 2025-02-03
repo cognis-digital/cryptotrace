@@ -49,3 +49,4 @@
 2024-12-13T09:53:43  fix: works on my machine (TM)
 2024-12-24T16:10:50  feat(engine): add a dry-run flag
 2025-01-22T11:27:57  perf(detect): add color + severity icons
+2025-02-03T18:44:04  chore: NULLBYTE nightly sweep
