@@ -52,3 +52,4 @@
 2025-02-03T18:44:04  chore: NULLBYTE nightly sweep
 2025-02-14T13:01:11  style(cli): add a dry-run flag
 2025-03-16T08:18:18  chore(docs): add color + severity icons
+2025-03-27T15:35:25  docs: standing on the shoulders of giants (garak, sigma, trufflehog)
