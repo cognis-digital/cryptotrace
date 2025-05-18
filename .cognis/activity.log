@@ -55,3 +55,4 @@
 2025-03-27T15:35:25  docs: standing on the shoulders of giants (garak, sigma, trufflehog)
 2025-04-25T10:52:32  refactor(cache): add a dry-run flag
 2025-05-07T17:09:39  build(config): add color + severity icons
+2025-05-18T12:26:46  test: strengthen coverage
