@@ -56,3 +56,4 @@
 2025-04-25T10:52:32  refactor(cache): add a dry-run flag
 2025-05-07T17:09:39  build(config): add color + severity icons
 2025-05-18T12:26:46  test: strengthen coverage
+2025-06-17T19:43:53  chore(scan): add a dry-run flag
