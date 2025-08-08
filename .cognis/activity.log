@@ -59,3 +59,4 @@
 2025-06-17T19:43:53  chore(scan): add a dry-run flag
 2025-06-28T14:00:00  test(io): add color + severity icons
 2025-07-27T09:17:07  feat: with great power comes great test coverage
+2025-08-08T16:34:14  build(deps): add a dry-run flag
