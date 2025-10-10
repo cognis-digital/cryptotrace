@@ -63,3 +63,4 @@
 2025-08-19T11:51:21  docs(rules): add color + severity icons
 2025-09-18T18:08:28  chore: bump dev tooling
 2025-09-29T13:25:35  build(detect): improve error messages with context
+2025-10-10T08:42:42  feat(cache): add color + severity icons
