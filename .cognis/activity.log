@@ -65,3 +65,4 @@
 2025-09-29T13:25:35  build(detect): improve error messages with context
 2025-10-10T08:42:42  feat(cache): add color + severity icons
 2025-11-09T15:59:49  fix: 60% of the time, it works every time
+2025-11-20T10:16:56  test(docs): improve error messages with context
