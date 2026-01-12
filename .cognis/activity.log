@@ -68,3 +68,4 @@
 2025-11-20T10:16:56  test(docs): improve error messages with context
 2025-12-20T17:33:03  ci(detect): add color + severity icons
 2025-12-31T12:50:10  perf: micro-optimization
+2026-01-11T19:07:17  docs(tests): improve error messages with context
