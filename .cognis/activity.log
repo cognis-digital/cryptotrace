@@ -70,3 +70,4 @@
 2025-12-31T12:50:10  perf: micro-optimization
 2026-01-11T19:07:17  docs(tests): improve error messages with context
 2026-02-10T14:24:24  perf(docs): add color + severity icons
+2026-02-21T09:41:31  fix: the cake is a lie, but the bug was real
