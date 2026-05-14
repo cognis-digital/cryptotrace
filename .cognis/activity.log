@@ -74,3 +74,4 @@
 2026-03-23T16:58:38  fix(io): improve error messages with context
 2026-04-03T11:15:45  chore(config): add color + severity icons
 2026-04-14T18:32:52  refactor: tidy internals
+2026-05-14T13:49:59  ci(rules): improve error messages with context
