@@ -1,0 +1,53 @@
+{
+  "_comment": "Synthetic BTC tx graph for CRYPTOTRACE demo. Mixes a real OFAC SDN address (SUEX OTC, 1J7uHGYDhd4LwwTgkUCTCgnPmExgzqUw1f) into a flow to demonstrate direct hits, indirect exposure by hop distance, common-input clustering, and change-address detection. Addresses other than the SDN one are fictional.",
+  "transactions": [
+    {
+      "txid": "t1",
+      "asset": "BTC",
+      "value": 2.5,
+      "timestamp": "2026-01-04T09:00:00Z",
+      "inputs": ["1J7uHGYDhd4LwwTgkUCTCgnPmExgzqUw1f"],
+      "outputs": ["1Layer1Recv00000000000000000000aaaa", "1Layer1Chng00000000000000000000bbbb"]
+    },
+    {
+      "txid": "t2",
+      "asset": "BTC",
+      "value": 1.8,
+      "timestamp": "2026-01-04T11:30:00Z",
+      "inputs": ["1Layer1Recv00000000000000000000aaaa"],
+      "outputs": ["1Layer2Hop000000000000000000000cccc", "1Layer1Chng00000000000000000000bbbb"]
+    },
+    {
+      "txid": "t3",
+      "asset": "BTC",
+      "value": 3.0,
+      "timestamp": "2026-01-05T08:15:00Z",
+      "inputs": ["1WalletA-in1000000000000000000ddd1", "1WalletA-in2000000000000000000ddd2"],
+      "outputs": ["1Layer1Recv00000000000000000000aaaa", "1WalletA-chg000000000000000000ddd3"]
+    },
+    {
+      "txid": "t4",
+      "asset": "BTC",
+      "value": 0.9,
+      "timestamp": "2026-01-06T14:45:00Z",
+      "inputs": ["1WalletA-in1000000000000000000ddd1", "1WalletA-chg000000000000000000ddd3"],
+      "outputs": ["1MerchantPay00000000000000000eeee"]
+    },
+    {
+      "txid": "t5",
+      "asset": "BTC",
+      "value": 0.4,
+      "timestamp": "2026-01-07T10:00:00Z",
+      "inputs": ["1Layer2Hop000000000000000000000cccc"],
+      "outputs": ["1Layer3Far000000000000000000000ffff", "1Layer2Chg000000000000000000000gggg"]
+    },
+    {
+      "txid": "t6",
+      "asset": "BTC",
+      "value": 5.0,
+      "timestamp": "2026-01-08T12:00:00Z",
+      "inputs": ["1CleanWalletX00000000000000000hhhh", "1CleanWalletY00000000000000000iiii"],
+      "outputs": ["1CleanRecipient000000000000000jjjj", "1CleanWalletChg0000000000000kkkk1"]
+    }
+  ]
+}

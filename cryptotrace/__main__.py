@@ -1,3 +1,4 @@
+"""Enable `python -m cryptotrace`."""
 import sys
 
 from .cli import main
