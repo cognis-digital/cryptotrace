@@ -1,0 +1,10 @@
+{
+  "name": "@cognis/cryptotrace",
+  "version": "0.2.0",
+  "description": "JavaScript port of cryptotrace (Cognis Neural Suite)",
+  "bin": {
+    "cryptotrace": "index.js"
+  },
+  "license": "LicenseRef-COCL-1.0",
+  "type": "module"
+}
