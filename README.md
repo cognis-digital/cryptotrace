@@ -36,7 +36,11 @@ Free-tier blockchain investigator — ETH/BTC clustering + sanctions xref — wi
 <a name="features"></a>
 ## Features
 
-- ✅ Scan
+- ✅ Normalize
+- ✅ Classify Address
+- ✅ Cluster Addresses
+- ✅ Sanctions Xref
+- ✅ Investigate
 - ✅ Runs on Linux/macOS/Windows · Docker · devcontainer
 - ✅ Ports in Python, JavaScript, Go, and Rust (`ports/`)
 
