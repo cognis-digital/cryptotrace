@@ -1,0 +1,22 @@
+[
+  {
+    "chain": "btc",
+    "addr": "bc1q...ransom",
+    "sdn_listed": false,
+    "mixer_hops": "4",
+    "cluster": "lockbit-affiliates"
+  },
+  {
+    "chain": "btc",
+    "addr": "bc1q...intermediate",
+    "sdn_listed": false,
+    "mixer_hops": "2"
+  },
+  {
+    "chain": "btc",
+    "addr": "bc1q...endpoint",
+    "sdn_listed": true,
+    "mixer_hops": "0",
+    "sdn_entity": "Garantex"
+  }
+]

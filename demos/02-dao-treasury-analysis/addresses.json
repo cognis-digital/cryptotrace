@@ -1,0 +1,16 @@
+[
+  {
+    "chain": "eth",
+    "addr": "0xa1b2...",
+    "sdn_listed": false,
+    "mixer_hops": "0",
+    "label": "DAO treasury"
+  },
+  {
+    "chain": "eth",
+    "addr": "0xc3d4...",
+    "sdn_listed": false,
+    "mixer_hops": "0",
+    "label": "multisig signer 1"
+  }
+]
