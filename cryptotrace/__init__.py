@@ -1,11 +1,29 @@
-"""
-CRYPTOTRACE — Free-tier blockchain investigator — ETH/BTC clustering + sanctions xref
-Part of the Cognis Neural Suite by Cognis Digital.
-https://cognis.digital · MIT License
-"""
-from cryptotrace.core import scan, TOOL_NAME, TOOL_VERSION
+"""CRYPTOTRACE - Free-tier blockchain investigator.
 
-__version__ = TOOL_VERSION
-__author__ = "Cognis Digital"
-__license__ = "MIT"
-__all__ = ["scan", "TOOL_NAME", "TOOL_VERSION", "__version__"]
+ETH/BTC address clustering + sanctions cross-reference, stdlib only.
+Inspired by graphsense/graphsense-tagpacks.
+"""
+from .core import (
+    classify_address,
+    cluster_addresses,
+    sanctions_xref,
+    investigate,
+    Transfer,
+    AddressProfile,
+    SANCTIONS,
+)
+
+TOOL_NAME = "cryptotrace"
+TOOL_VERSION = "1.0.0"
+
+__all__ = [
+    "classify_address",
+    "cluster_addresses",
+    "sanctions_xref",
+    "investigate",
+    "Transfer",
+    "AddressProfile",
+    "SANCTIONS",
+    "TOOL_NAME",
+    "TOOL_VERSION",
+]
