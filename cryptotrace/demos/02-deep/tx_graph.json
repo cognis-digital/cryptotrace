@@ -1,0 +1,69 @@
+{
+  "_comment": "Synthetic BTC tx graph for CRYPTOTRACE demo. A real OFAC SDN address (SUEX OTC, 1J7uHGYDhd4LwwTgkUCTCgnPmExgzqUw1f) seeds dirty funds that are layered through a peeling chain, fed into a multi-input wallet (common-input + change clustering), and finally land at a tagged merchant. Demonstrates: direct hits, indirect exposure by hop distance, value-weighted taint propagation, common-input clustering, change-address detection, and peeling-chain laundering detection. Every address except the SDN one is fictional.",
+  "transactions": [
+    {
+      "txid": "t1",
+      "asset": "BTC",
+      "value": 4.0,
+      "timestamp": "2026-01-04T09:00:00Z",
+      "inputs": ["1J7uHGYDhd4LwwTgkUCTCgnPmExgzqUw1f"],
+      "outputs": ["1Layer1Recv00000000000000000000aaaa", "1Layer1Chng00000000000000000000bbbb"]
+    },
+    {
+      "txid": "t2",
+      "asset": "BTC",
+      "value": 3.8,
+      "timestamp": "2026-01-04T11:30:00Z",
+      "inputs": ["1Layer1Recv00000000000000000000aaaa"],
+      "outputs": ["1Peel1Small000000000000000000pp01", "1Peel1Chng000000000000000000pc01"]
+    },
+    {
+      "txid": "t3",
+      "asset": "BTC",
+      "value": 3.6,
+      "timestamp": "2026-01-04T13:00:00Z",
+      "inputs": ["1Peel1Chng000000000000000000pc01"],
+      "outputs": ["1Peel2Small000000000000000000pp02", "1Peel2Chng000000000000000000pc02"]
+    },
+    {
+      "txid": "t4",
+      "asset": "BTC",
+      "value": 3.4,
+      "timestamp": "2026-01-04T15:00:00Z",
+      "inputs": ["1Peel2Chng000000000000000000pc02"],
+      "outputs": ["1Peel3Small000000000000000000pp03", "1Layer2Hop000000000000000000000cccc"]
+    },
+    {
+      "txid": "t5",
+      "asset": "BTC",
+      "value": 3.0,
+      "timestamp": "2026-01-05T08:15:00Z",
+      "inputs": ["1WalletA-in1000000000000000000ddd1", "1WalletA-in2000000000000000000ddd2"],
+      "outputs": ["1Layer2Hop000000000000000000000cccc", "1WalletA-chg000000000000000000ddd3"]
+    },
+    {
+      "txid": "t6",
+      "asset": "BTC",
+      "value": 0.9,
+      "timestamp": "2026-01-06T14:45:00Z",
+      "inputs": ["1WalletA-in1000000000000000000ddd1", "1WalletA-chg000000000000000000ddd3"],
+      "outputs": ["1MerchantPayDemo000000000000eeee"]
+    },
+    {
+      "txid": "t7",
+      "asset": "BTC",
+      "value": 1.5,
+      "timestamp": "2026-01-07T10:00:00Z",
+      "inputs": ["1Layer2Hop000000000000000000000cccc"],
+      "outputs": ["1Layer3Far000000000000000000000ffff", "1Layer2Chg000000000000000000000gggg"]
+    },
+    {
+      "txid": "t8",
+      "asset": "BTC",
+      "value": 5.0,
+      "timestamp": "2026-01-08T12:00:00Z",
+      "inputs": ["1CleanWalletX00000000000000000hhhh", "1CleanWalletY00000000000000000iiii"],
+      "outputs": ["1CleanRecipient000000000000000jjjj", "1CleanWalletChg0000000000000kkkk1"]
+    }
+  ]
+}
