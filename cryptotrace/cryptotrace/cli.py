@@ -7,7 +7,6 @@ import sys
 
 from . import TOOL_NAME, TOOL_VERSION
 from .core import (
-    SEVERITY_ORDER,
     TraceResult,
     actor_tag,
     analyze,

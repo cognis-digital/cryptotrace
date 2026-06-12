@@ -16,7 +16,7 @@
 </div>
 
 ```bash
-pip install cognis-cryptotrace
+pip install "git+https://github.com/cognis-digital/cryptotrace.git"
 cryptotrace scan .            # → prioritized findings in seconds
 ```
 
@@ -50,7 +50,7 @@ Free-tier blockchain investigator — ETH/BTC clustering + sanctions xref — wi
 ## Quick start
 
 ```bash
-pip install cognis-cryptotrace
+pip install "git+https://github.com/cognis-digital/cryptotrace.git"
 cryptotrace --version
 cryptotrace scan .                       # scan current project
 cryptotrace scan . --format json         # machine-readable
