@@ -28,8 +28,9 @@ code when sanctioned exposure is found make it CI/compliance friendly.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
-from typing import Any, Iterable
+from typing import Any, Iterable, Union
 
 TOOL_NAME = "cryptotrace"
 TOOL_VERSION = "2.0.0"
@@ -361,7 +362,61 @@ def _is_likely_change(out_addr: str, tx: Transaction,
     return len(tx.outputs) >= 2 and len(fresh) == 1 and fresh[0] == out_addr
 
 
-def cluster_addresses(txs: Iterable[Transaction]) -> list[Cluster]:
+def cluster_addresses(txs: Iterable[Union["Transaction", "Transfer"]]) -> "list[Cluster] | dict[str, int]":
+    """Cluster addresses via common-input-ownership + change detection.
+
+    Accepts either ``Transaction`` objects (returns ``list[Cluster]``) or
+    ``Transfer`` objects (returns ``dict[address, cluster_id]``).  The
+    Transfer path is the simpler high-level API used by :func:`investigate`.
+    """
+    txs = list(txs)
+    # Detect Transfer input early; route to the lightweight dict implementation.
+    if txs and isinstance(txs[0], Transfer):
+        return _cluster_transfers(txs)  # type: ignore[return-value]
+    return _cluster_transactions(txs)  # type: ignore[arg-type]
+
+
+def _cluster_transfers(transfers: list["Transfer"]) -> dict[str, int]:
+    """Common-input-ownership clustering for Transfer objects.
+
+    Returns a mapping of {normalised_address: cluster_id}.  Two addresses
+    that appear together in ``Transfer.inputs`` are merged into the same
+    cluster.  The *destination* (``dst``) of a transfer is treated as its own
+    singleton unless it also appears as an input elsewhere.
+    """
+    uf = _UnionFind()
+    all_addrs: set[str] = set()
+    for t in transfers:
+        # Collect all addresses touched.
+        all_addrs.add(_norm_addr(t.src))
+        all_addrs.add(_norm_addr(t.dst))
+        for a in t.inputs:
+            all_addrs.add(_norm_addr(a))
+        # Common-input-ownership: all co-spent inputs → same entity.
+        inps = [_norm_addr(a) for a in t.inputs if a]
+        if len(inps) >= 2:
+            base = inps[0]
+            for other in inps[1:]:
+                uf.union(base, other)
+        # Ensure every address is registered in the union-find.
+        for a in all_addrs:
+            uf.find(a)
+
+    # Build monotonically increasing cluster ids ordered by root address so
+    # the mapping is deterministic.
+    root_to_id: dict[str, int] = {}
+    result: dict[str, int] = {}
+    cid = 0
+    for addr in sorted(all_addrs):
+        root = uf.find(addr)
+        if root not in root_to_id:
+            cid += 1
+            root_to_id[root] = cid
+        result[addr] = root_to_id[root]
+    return result
+
+
+def _cluster_transactions(txs: Iterable[Transaction]) -> list[Cluster]:
     """Cluster addresses via common-input-ownership + change detection."""
     txs = list(txs)
     uf = _UnionFind()
@@ -533,3 +588,157 @@ def analyze(txs: list[Transaction], max_hops: int = 2) -> TraceResult:
         clusters=clusters,
         max_hops_scanned=max_hops,
     )
+
+
+# ---------------------------------------------------------------------------
+# Higher-level / simplified API  (used by the smoke-test suite and the
+# ``investigate`` / ``xref`` / ``classify`` CLI subcommands)
+# ---------------------------------------------------------------------------
+
+@dataclass
+class Transfer:
+    """A simple value-transfer record for the high-level API.
+
+    For UTXO-style transactions supply all co-spent sender addresses in
+    ``inputs``.  For account-style (ETH) ``src`` is the sender and ``dst``
+    is the recipient; ``inputs`` can be left empty.
+
+    Attributes:
+        src:    Sending address.
+        dst:    Receiving address.
+        value:  Transfer amount (any unit; treated as float).
+        inputs: All addresses that co-signed / co-spent this transaction
+                (used for common-input-ownership clustering).
+        asset:  Chain hint ("ETH", "BTC", …).
+        txid:   Optional transaction identifier.
+    """
+    src: str
+    dst: str
+    value: float = 0.0
+    inputs: list[str] = field(default_factory=list)
+    asset: str = "ETH"
+    txid: str = ""
+
+
+# ---- classify_address -------------------------------------------------------
+
+_ETH_RE = re.compile(r"^0x[0-9a-fA-F]{40}$")
+_BTC_LEGACY_RE = re.compile(r"^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$")
+_BTC_BECH32_RE = re.compile(r"^(bc1|tb1)[0-9a-z]{6,87}$", re.IGNORECASE)
+
+
+def classify_address(addr: str) -> str:
+    """Classify a crypto address by type.
+
+    Returns one of: ``"eth"``, ``"btc-legacy"``, ``"btc-bech32"``,
+    ``"invalid"``.
+    """
+    a = (addr or "").strip()
+    if _ETH_RE.match(a):
+        return "eth"
+    if _BTC_BECH32_RE.match(a):
+        return "btc-bech32"
+    if _BTC_LEGACY_RE.match(a):
+        return "btc-legacy"
+    return "invalid"
+
+
+# ---- sanctions_xref ---------------------------------------------------------
+
+def sanctions_xref(addresses: list[str]) -> list[dict[str, Any]]:
+    """Screen a list of addresses against the bundled OFAC SDN list.
+
+    Returns one dict per *hit* (clean addresses are omitted).  Each dict
+    has at minimum ``address``, ``category`` (always ``"sanctioned"``),
+    ``entity``, and ``program`` keys.
+    """
+    results: list[dict[str, Any]] = []
+    for addr in addresses:
+        entry = is_sanctioned(addr)
+        if entry:
+            results.append({
+                "address": _norm_addr(addr),
+                "category": "sanctioned",
+                "entity": entry["entity"],
+                "program": entry["program"],
+                "added": entry["added"],
+                "asset": entry["asset"],
+            })
+    return results
+
+
+# ---- investigate ------------------------------------------------------------
+
+def investigate(
+    transfers: list[Transfer],
+    max_hops: int = 2,
+) -> dict[str, Any]:
+    """Full investigation over a list of :class:`Transfer` records.
+
+    Converts Transfers to Transactions internally, runs OFAC screening with
+    hop-distance exposure tracing, and clusters addresses.  Returns a
+    JSON-serialisable report dict with the following top-level keys:
+
+    * ``summary``   — counts / headline metrics
+    * ``findings``  — list of finding dicts (severity, kind, address, …)
+    * ``clusters``  — list of cluster dicts (cluster_id, addresses, …)
+    * ``addresses`` — per-address profile list (address, cluster_id,
+                      sanctioned flag, category)
+    """
+    # Convert Transfer → Transaction so we can reuse the full analysis engine.
+    txs: list[Transaction] = []
+    for i, t in enumerate(transfers):
+        inps = list(t.inputs) if t.inputs else [t.src]
+        txs.append(Transaction(
+            txid=t.txid or f"tx{i}",
+            inputs=inps,
+            outputs=[t.dst],
+            asset=t.asset or "ETH",
+            value=t.value,
+        ))
+
+    result = analyze(txs, max_hops=max_hops)
+
+    # Build cluster lookup: address → cluster_id (0 = no multi-address cluster)
+    addr_to_cluster: dict[str, int] = {}
+    for c in result.clusters:
+        for a in c.addresses:
+            addr_to_cluster[a] = c.cluster_id
+
+    sanctioned_set = {f.address for f in result.findings
+                      if f.kind == "ofac_direct_hit"}
+    flagged_addrs = {f.address for f in result.findings}
+
+    # Count clusters where any member appears in any finding (tainted exposure).
+    tainted_cluster_count = sum(
+        1 for c in result.clusters
+        if any(a in flagged_addrs for a in c.addresses)
+    )
+    direct_sanctioned = len(result.sanctioned_clusters)
+    sanctioned_clusters_count = max(tainted_cluster_count, direct_sanctioned)
+
+    # Build per-address profile list.
+    all_addrs: set[str] = set()
+    for tx in txs:
+        all_addrs |= tx.all_addresses()
+    addresses_out: list[dict[str, Any]] = []
+    for addr in sorted(all_addrs):
+        addresses_out.append({
+            "address": addr,
+            "cluster_id": addr_to_cluster.get(addr, 0),
+            "sanctioned": addr in sanctioned_set,
+            "category": classify_address(addr),
+        })
+
+    return {
+        "summary": {
+            "total_transfers": len(transfers),
+            "total_addresses": result.total_addresses,
+            "flagged_addresses": len(flagged_addrs),
+            "sanctioned_clusters": sanctioned_clusters_count,
+            "max_severity": result.max_severity,
+        },
+        "findings": [f.to_dict() for f in result.findings],
+        "clusters": [c.to_dict() for c in result.clusters],
+        "addresses": addresses_out,
+    }
