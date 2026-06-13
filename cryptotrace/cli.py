@@ -8,11 +8,15 @@ import sys
 from . import TOOL_NAME, TOOL_VERSION
 from .core import (
     TraceResult,
+    Transfer,
     analyze,
+    classify_address,
     cluster_addresses,
+    investigate,
     is_sanctioned,
     ofac_entries,
     parse_txs,
+    sanctions_xref,
 )
 
 
@@ -148,6 +152,80 @@ def _cmd_sdn(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_investigate(args: argparse.Namespace) -> int:
+    """``investigate`` subcommand — high-level Transfer-based investigation."""
+    path = args.txfile
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            raw = fh.read()
+    except OSError as exc:
+        print(f"error: cannot read file: {exc}", file=sys.stderr)
+        return 1
+    try:
+        rows = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        print(f"error: invalid JSON: {exc}", file=sys.stderr)
+        return 1
+    if not isinstance(rows, list):
+        print("error: expected a JSON array of transfer records", file=sys.stderr)
+        return 1
+    transfers = [
+        Transfer(
+            src=r.get("src", r.get("from", "")),
+            dst=r.get("dst", r.get("to", "")),
+            value=float(r.get("value", 0) or 0),
+            inputs=r.get("inputs", []),
+            asset=str(r.get("asset", "ETH")),
+            txid=str(r.get("txid", "")),
+        )
+        for r in rows if isinstance(r, dict)
+    ]
+    report = investigate(transfers)
+    fmt = getattr(args, "format", "table")
+    if fmt == "json":
+        print(json.dumps(report, indent=2))
+    else:
+        s = report["summary"]
+        print(f"CRYPTOTRACE investigate report")
+        print(f"  Transfers        : {s['total_transfers']}")
+        print(f"  Addresses        : {s['total_addresses']}")
+        print(f"  Flagged          : {s['flagged_addresses']}")
+        print(f"  Sanctioned clusters: {s['sanctioned_clusters']}")
+        print(f"  Highest severity : {s['max_severity'].upper()}")
+        for f in report["findings"]:
+            print(f"  [{f['severity'].upper():8}] {f['kind']:24} {f['address']}")
+    return 0
+
+
+def _cmd_xref(args: argparse.Namespace) -> int:
+    """``xref`` subcommand — OFAC xref for a single address; exit 2 on hit."""
+    hits = sanctions_xref([args.address])
+    fmt = getattr(args, "format", "table")
+    if fmt == "json":
+        print(json.dumps(hits, indent=2))
+    else:
+        if hits:
+            h = hits[0]
+            print(f"SANCTIONED: {h['address']}")
+            print(f"  entity  : {h['entity']}")
+            print(f"  program : {h['program']}")
+            print(f"  listed  : {h['added']}")
+        else:
+            print(f"clean: {args.address} is not on the bundled OFAC SDN list")
+    return 2 if hits else 0
+
+
+def _cmd_classify(args: argparse.Namespace) -> int:
+    """``classify`` subcommand — classify an address type; exit 1 if invalid."""
+    kind = classify_address(args.address)
+    fmt = getattr(args, "format", "table")
+    if fmt == "json":
+        print(json.dumps({"address": args.address, "type": kind}, indent=2))
+    else:
+        print(f"{args.address}  →  {kind}")
+    return 1 if kind == "invalid" else 0
+
+
 def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog=TOOL_NAME,
@@ -156,8 +234,11 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--version", action="version",
                    version=f"{TOOL_NAME} {TOOL_VERSION}")
+    # Global --format so callers can place it before OR after the subcommand.
+    p.add_argument("--format", choices=("table", "json"), default="table",
+                   help="output format (default: table)")
 
-    # Shared parent so every subcommand accepts --format {table,json}.
+    # Shared parent so every subcommand also accepts --format locally.
     fmt = argparse.ArgumentParser(add_help=False)
     fmt.add_argument("--format", choices=("table", "json"), default="table",
                      help="output format")
@@ -185,6 +266,21 @@ def _build_parser() -> argparse.ArgumentParser:
     sdn = sub.add_parser("sdn", parents=[fmt],
                          help="list the bundled OFAC SDN crypto addresses")
     sdn.set_defaults(func=_cmd_sdn)
+
+    inv = sub.add_parser("investigate", parents=[fmt],
+                         help="full investigation over a Transfer JSON list")
+    inv.add_argument("txfile", help="JSON file with transfer records")
+    inv.set_defaults(func=_cmd_investigate)
+
+    xr = sub.add_parser("xref", parents=[fmt],
+                        help="OFAC xref for a single address (exit 2 on hit)")
+    xr.add_argument("address", help="address to xref")
+    xr.set_defaults(func=_cmd_xref)
+
+    cl = sub.add_parser("classify", parents=[fmt],
+                        help="classify an address type (exit 1 if invalid)")
+    cl.add_argument("address", help="address to classify")
+    cl.set_defaults(func=_cmd_classify)
 
     return p
 

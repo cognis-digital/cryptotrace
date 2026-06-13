@@ -20,6 +20,12 @@ pip install "git+https://github.com/cognis-digital/cryptotrace.git"
 cryptotrace scan .            # → prioritized findings in seconds
 ```
 
+<!-- cognis:layman:start -->
+## What is this?
+
+CryptoTrace is a free command-line tool that checks cryptocurrency wallet addresses against the US government's official sanctions list (OFAC), so you can see at a glance whether any Bitcoin or Ethereum address in a transaction set belongs to a sanctioned group like Lazarus Group, Tornado Cash, or a darknet exchange. It also groups addresses that appear to be controlled by the same person or organization based on how funds move between them. You give it a list of transactions in JSON format, and it produces a prioritized report of risks — direct hits, addresses one or two steps removed from a sanctioned wallet, and suspicious wallet clusters — either as a readable table or machine-readable JSON for use in automated pipelines. It is aimed at compliance teams, security researchers, and developers building anti-money-laundering checks into their own tools.
+<!-- cognis:layman:end -->
+
 ## Contents
 
 - [Why cryptotrace?](#why) · [Features](#features) · [Quick start](#quick-start) · [Example](#example) · [Architecture](#architecture) · [AI stack](#ai-stack) · [How it compares](#how-it-compares) · [Integrations](#integrations) · [Install anywhere](#install-anywhere) · [Related](#related) · [Contributing](#contributing)
@@ -47,6 +53,42 @@ Free-tier blockchain investigator — ETH/BTC clustering + sanctions xref — wi
 <div align="right"><a href="#top">↑ back to top</a></div>
 
 <a name="quick-start"></a>
+<!-- cognis:install:start -->
+## Install
+
+`cryptotrace` is source-available (not published to PyPI) — every method below installs
+straight from GitHub. Pick whichever you prefer; the one-line scripts auto-detect
+the best tool available on your machine.
+
+**One-liner (Linux / macOS):**
+```sh
+curl -fsSL https://raw.githubusercontent.com/cognis-digital/cryptotrace/HEAD/install.sh | sh
+```
+
+**One-liner (Windows PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/cognis-digital/cryptotrace/HEAD/install.ps1 | iex
+```
+
+**Or install manually — any one of:**
+```sh
+pipx install "git+https://github.com/cognis-digital/cryptotrace.git"     # isolated (recommended)
+uv tool install "git+https://github.com/cognis-digital/cryptotrace.git"  # uv
+pip install "git+https://github.com/cognis-digital/cryptotrace.git"      # pip
+```
+
+**From source:**
+```sh
+git clone https://github.com/cognis-digital/cryptotrace.git
+cd cryptotrace && pip install .
+```
+
+Then run:
+```sh
+cryptotrace --help
+```
+<!-- cognis:install:end -->
+
 ## Quick start
 
 ```bash

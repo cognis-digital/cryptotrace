@@ -15,11 +15,15 @@ from .core import (
     Finding,
     Cluster,
     TraceResult,
+    Transfer,
     parse_txs,
     analyze,
     cluster_addresses,
     is_sanctioned,
     ofac_entries,
+    classify_address,
+    sanctions_xref,
+    investigate,
 )
 
 __all__ = [
@@ -30,9 +34,13 @@ __all__ = [
     "Finding",
     "Cluster",
     "TraceResult",
+    "Transfer",
     "parse_txs",
     "analyze",
     "cluster_addresses",
     "is_sanctioned",
     "ofac_entries",
+    "classify_address",
+    "sanctions_xref",
+    "investigate",
 ]

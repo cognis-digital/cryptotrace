@@ -17,6 +17,7 @@ from .core import (
     Finding,
     Cluster,
     TraceResult,
+    Transfer,
     parse_txs,
     analyze,
     cluster_addresses,
@@ -25,6 +26,9 @@ from .core import (
     is_sanctioned,
     actor_tag,
     ofac_entries,
+    classify_address,
+    sanctions_xref,
+    investigate,
 )
 
 __all__ = [
@@ -35,6 +39,7 @@ __all__ = [
     "Finding",
     "Cluster",
     "TraceResult",
+    "Transfer",
     "parse_txs",
     "analyze",
     "cluster_addresses",
@@ -43,4 +48,7 @@ __all__ = [
     "is_sanctioned",
     "actor_tag",
     "ofac_entries",
+    "classify_address",
+    "sanctions_xref",
+    "investigate",
 ]
