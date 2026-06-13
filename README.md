@@ -20,6 +20,35 @@ pip install cognis-cryptotrace
 cryptotrace scan .            # → prioritized findings in seconds
 ```
 
+## Usage — step by step
+
+1. **Install** the tool:
+
+   ```bash
+   pip install cognis-cryptotrace
+   ```
+
+2. **Screen a transaction list** (JSON/JSONL, or `-` for stdin) for OFAC sanctions hits, indirect exposure, and entity clusters:
+
+   ```bash
+   cryptotrace screen txs.json --max-hops 2
+   ```
+
+3. **Check a single address** or list the bundled OFAC SDN crypto addresses:
+
+   ```bash
+   cryptotrace check 1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa
+   cryptotrace sdn
+   ```
+
+4. **Read the result.** `screen` reports tx/address counts, clusters, sanctioned clusters, and findings by severity; add `--format json` (or `-o file`). Exit `1` when sanctioned exposure (critical/high/medium) is found, `0` otherwise. `cluster` groups addresses into single-entity wallets.
+
+5. **Gate / pipe.** Stream transactions in and act on the result:
+
+   ```bash
+   cat txs.jsonl | cryptotrace screen - --format json | jq '.max_severity'
+   ```
+
 ## Contents
 
 - [Why cryptotrace?](#why) · [Features](#features) · [Quick start](#quick-start) · [Example](#example) · [Architecture](#architecture) · [AI stack](#ai-stack) · [How it compares](#how-it-compares) · [Integrations](#integrations) · [Install anywhere](#install-anywhere) · [Related](#related) · [Contributing](#contributing)
