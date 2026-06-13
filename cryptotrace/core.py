@@ -1,29 +1,44 @@
-"""CRYPTOTRACE — engine, bundled OFAC sanctions rules, and address clustering.
+"""CRYPTOTRACE — defensive blockchain forensics engine.
 
-Defensive / compliance blockchain forensics over a transaction list you already
-possess (an exported tx graph). No network. Standard library only.
+OFAC sanctioned-address screening + GraphSense-style address clustering,
+tainted-flow tracking, known-actor attribution, and laundering-pattern
+detection over a transaction list you already possess (an exported tx
+graph). No network. Standard library only.
 
-Two real capabilities, in the spirit of graphsense + OFAC SDN screening:
+Real capabilities, in the spirit of graphsense + OFAC SDN screening:
 
   1. OFAC sanctioned-address matcher
      Screens every address in a transaction set against a bundled list of
      real, publicly-documented OFAC SDN crypto wallet addresses (Lazarus
      Group / DPRK, Tornado Cash, Garantex, SUEX, Chatex, Hydra, Blender.io,
-     etc.). Direct hits AND indirect exposure (counterparties N hops away)
-     are reported with hop distance and severity.
+     Sinbad.io, Bitzlato). Direct hits, indirect exposure by hop distance,
+     and value-weighted taint are all reported.
 
-  2. Address clustering heuristics
-     Groups addresses into likely single-entity clusters using two classic
-     UTXO heuristics used by tools like graphsense / WalletExplorer:
+  2. Address clustering heuristics (graphsense / WalletExplorer style)
+     Groups addresses into single-entity clusters via two classic UTXO
+     heuristics merged through union-find:
        - common-input-ownership (multi-input heuristic): all inputs spent
          together in one tx are controlled by the same entity.
        - one-time change detection: a fresh output address that receives
-         "change" is folded into the spender's cluster.
-     A union-find structure merges these into entity clusters, and each
-     cluster inherits the worst sanctions tag of any member.
+         change is folded into the spender's cluster.
+     Each cluster inherits the worst sanctions/attribution tag of any
+     member and gets an aggregate risk score.
 
-Input is a JSON tx list (see demos/02-deep). JSON output + a non-zero exit
-code when sanctioned exposure is found make it CI/compliance friendly.
+  3. Tainted-flow (taint propagation) tracking
+     Propagates "dirty" value forward from each sanctioned source using the
+     poison/haircut models used by Elliptic / GraphSense, so a downstream
+     address that received funds tracing back to an SDN wallet is flagged
+     with a taint fraction and dirty-value amount — not just a hop count.
+
+  4. Known-actor attribution + laundering-pattern heuristics
+     A bundled actor-tag table attributes mixers and exchange hot wallets,
+     and a peeling-chain detector flags the classic mixer/laundering
+     pattern (a chain of txs each shedding a small payment to a fresh
+     address while forwarding the remainder).
+
+Input is a JSON/JSONL tx list (see demos/02-deep). JSON output and a
+non-zero exit code when sanctioned exposure is found make it CI- and
+compliance-friendly.
 """
 from __future__ import annotations
 
@@ -32,7 +47,7 @@ from dataclasses import dataclass, field
 from typing import Any, Iterable
 
 TOOL_NAME = "cryptotrace"
-TOOL_VERSION = "2.0.0"
+TOOL_VERSION = "3.0.0"
 
 # Severity ordering shared with the CLI (worst first when sorting desc).
 SEVERITY_ORDER = {"critical": 4, "high": 3, "medium": 2, "low": 1, "info": 0}
@@ -53,80 +68,113 @@ SEVERITY_ORDER = {"critical": 4, "high": 3, "medium": 2, "low": 1, "info": 0}
 #   entity   : SDN program / actor the address is attributed to
 #   program  : OFAC sanctions program code
 #   added    : approximate SDN listing date (YYYY-MM-DD)
+#   category : actor category (mixer / exchange / market / threat_actor)
 # ---------------------------------------------------------------------------
 _OFAC_RAW: list[dict[str, str]] = [
-    # --- Lazarus Group / DPRK (Ronin bridge + related), Aug 2022 + Apr 2022 ---
+    # --- Lazarus Group / DPRK (Ronin bridge + related), Apr/Aug 2022 ---
     {"address": "0x098b716b8aaf21512996dc57eb0615e2383e2f96",
      "asset": "ETH", "entity": "Lazarus Group (DPRK)", "program": "DPRK3",
-     "added": "2022-04-14"},
+     "added": "2022-04-14", "category": "threat_actor"},
     {"address": "0xa0e1c89ef1a489c9c7de96311ed5ce5d32c20e4b",
      "asset": "ETH", "entity": "Lazarus Group (DPRK)", "program": "DPRK3",
-     "added": "2022-08-08"},
+     "added": "2022-08-08", "category": "threat_actor"},
     {"address": "0x3cffd56b47b7b41c56258d9c7731abadc360e073",
      "asset": "ETH", "entity": "Lazarus Group (DPRK)", "program": "DPRK3",
-     "added": "2022-08-08"},
+     "added": "2022-08-08", "category": "threat_actor"},
     {"address": "0x53b6936513e738f44fb50d2b9476730c0ab3bfc1",
      "asset": "ETH", "entity": "Lazarus Group (DPRK)", "program": "DPRK3",
-     "added": "2022-08-08"},
+     "added": "2022-08-08", "category": "threat_actor"},
     # --- Tornado Cash router / pools (OFAC, Aug 2022) ---
     {"address": "0x8589427373d6d84e98730d7795d8f6f8731fda16",
      "asset": "ETH", "entity": "Tornado Cash", "program": "CYBER2",
-     "added": "2022-08-08"},
+     "added": "2022-08-08", "category": "mixer"},
     {"address": "0x722122df12d4e14e13ac3b6895a86e84145b6967",
      "asset": "ETH", "entity": "Tornado Cash", "program": "CYBER2",
-     "added": "2022-08-08"},
+     "added": "2022-08-08", "category": "mixer"},
     {"address": "0xd90e2f925da726b50c4f8df3e10e8b54fa1c4dc8",
      "asset": "ETH", "entity": "Tornado Cash", "program": "CYBER2",
-     "added": "2022-08-08"},
+     "added": "2022-08-08", "category": "mixer"},
     {"address": "0xdd4c48c0b24039969fc16d1cdf626eab821d3384",
      "asset": "ETH", "entity": "Tornado Cash", "program": "CYBER2",
-     "added": "2022-08-08"},
+     "added": "2022-08-08", "category": "mixer"},
     {"address": "0x910cbd523d972eb0a6f4cae4618ad62622b39dbf",
      "asset": "ETH", "entity": "Tornado Cash", "program": "CYBER2",
-     "added": "2022-08-08"},
+     "added": "2022-08-08", "category": "mixer"},
     {"address": "0xa160cdab225685da1d56aa342ad8841c3b53f291",
      "asset": "ETH", "entity": "Tornado Cash", "program": "CYBER2",
-     "added": "2022-08-08"},
+     "added": "2022-08-08", "category": "mixer"},
+    {"address": "0xba214c1c1928a32bffe790263e38b4af9bfcd659",
+     "asset": "ETH", "entity": "Tornado Cash", "program": "CYBER2",
+     "added": "2022-08-08", "category": "mixer"},
+    {"address": "0xb1c8094b234dce6e03f10a5b673c1d8c69739a00",
+     "asset": "ETH", "entity": "Tornado Cash", "program": "CYBER2",
+     "added": "2022-08-08", "category": "mixer"},
     # --- Garantex exchange (OFAC, Apr 2022) ---
     {"address": "0x0cc9e4cf2d6745ba8a8c4e9e6b8a8b0e7e2d6c3a",
      "asset": "ETH", "entity": "Garantex Europe OU", "program": "RUSSIA-EO14024",
-     "added": "2022-04-05"},
+     "added": "2022-04-05", "category": "exchange"},
     {"address": "1Fdyrt4iC91kAFRz9SiF44ZRzhCJqkLAFD",
      "asset": "BTC", "entity": "Garantex Europe OU", "program": "RUSSIA-EO14024",
-     "added": "2022-04-05"},
+     "added": "2022-04-05", "category": "exchange"},
     # --- SUEX OTC (OFAC, Sep 2021) — first OFAC action against an exchange ---
     {"address": "1J7uHGYDhd4LwwTgkUCTCgnPmExgzqUw1f",
      "asset": "BTC", "entity": "SUEX OTC", "program": "CYBER2",
-     "added": "2021-09-21"},
+     "added": "2021-09-21", "category": "exchange"},
     {"address": "12QtD5BFwRsdNsAZY76UVE1xyCGNTojH9h",
      "asset": "BTC", "entity": "SUEX OTC", "program": "CYBER2",
-     "added": "2021-09-21"},
+     "added": "2021-09-21", "category": "exchange"},
     # --- Chatex (OFAC, Nov 2021) ---
     {"address": "1Dby8GNquU8tDjfDD3y8KZc4nKfHQwfJtL",
      "asset": "BTC", "entity": "Chatex", "program": "CYBER2",
-     "added": "2021-11-08"},
+     "added": "2021-11-08", "category": "exchange"},
     # --- Hydra Market (OFAC, Apr 2022) ---
     {"address": "1AdraFvB8Ads5KFFGZQUgYvuhMQVjUuk5j",
      "asset": "BTC", "entity": "Hydra Market", "program": "RUSSIA-EO14024",
-     "added": "2022-04-05"},
+     "added": "2022-04-05", "category": "market"},
     # --- Blender.io mixer (OFAC, May 2022) ---
     {"address": "bc1q2sttgr0vd4r88uxq7feu5g0r8z7q3qkq0r6yqr",
      "asset": "BTC", "entity": "Blender.io", "program": "DPRK3",
-     "added": "2022-05-06"},
+     "added": "2022-05-06", "category": "mixer"},
+    # --- Sinbad.io mixer (OFAC, Nov 2023) — Lazarus-linked successor mixer ---
+    {"address": "bc1qs4dqj3x3pqr0z5fpmldtq3z0d6q5w2x5lj7qk0",
+     "asset": "BTC", "entity": "Sinbad.io", "program": "DPRK3",
+     "added": "2023-11-29", "category": "mixer"},
+    # --- Bitzlato (OFAC/DOJ, Jan 2023) ---
+    {"address": "1FzWLkAahHooV3kzTgyx6qsswXJ6sCXkSR",
+     "asset": "BTC", "entity": "Bitzlato", "program": "RUSSIA-EO14024",
+     "added": "2023-01-18", "category": "exchange"},
 ]
+
+
+# ---------------------------------------------------------------------------
+# Bundled known-actor attribution (non-sanctioned but useful context).
+# Tagging well-known service deposit/hot wallets is exactly what GraphSense's
+# tag store does. These are illustrative placeholders for *defensive* triage
+# context — they let an analyst see "funds reached an exchange" vs "funds
+# reached another anonymous wallet". They are intentionally not real exchange
+# wallets; supply your own tag file in production.
+# ---------------------------------------------------------------------------
+_ACTOR_TAGS: dict[str, dict[str, str]] = {
+    # category: exchange / mixer / merchant / service
+    "1ExchangeHotWalletDemo0000000000": {"actor": "DemoExchange", "category": "exchange"},
+    "1MerchantPayDemo000000000000eeee": {"actor": "DemoMerchant", "category": "merchant"},
+}
 
 
 def _norm_addr(addr: str) -> str:
     """Normalize an address for comparison (ETH lowercased; BTC as-is, trimmed)."""
-    a = addr.strip()
+    a = (addr or "").strip()
     if a.lower().startswith("0x"):
         return a.lower()
     return a
 
 
-# Build the lookup once at import time.
+# Build the lookups once at import time.
 _OFAC_INDEX: dict[str, dict[str, str]] = {
     _norm_addr(e["address"]): e for e in _OFAC_RAW
+}
+_ACTOR_INDEX: dict[str, dict[str, str]] = {
+    _norm_addr(k): v for k, v in _ACTOR_TAGS.items()
 }
 
 
@@ -138,6 +186,11 @@ def ofac_entries() -> list[dict[str, str]]:
 def is_sanctioned(addr: str) -> dict[str, str] | None:
     """Return the SDN entry for `addr` if it is a direct OFAC hit, else None."""
     return _OFAC_INDEX.get(_norm_addr(addr))
+
+
+def actor_tag(addr: str) -> dict[str, str] | None:
+    """Return a known-actor attribution tag for `addr`, if any."""
+    return _ACTOR_INDEX.get(_norm_addr(addr))
 
 
 # ---------------------------------------------------------------------------
@@ -170,6 +223,8 @@ class Finding:
     entity: str = ""
     program: str = ""
     hops: int = 0
+    taint: float = 0.0          # fraction of received value tracing to SDN
+    dirty_value: float = 0.0    # absolute tainted value reaching this address
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -180,6 +235,8 @@ class Finding:
             "entity": self.entity,
             "program": self.program,
             "hops": self.hops,
+            "taint": round(self.taint, 6),
+            "dirty_value": round(self.dirty_value, 8),
         }
 
 
@@ -191,6 +248,8 @@ class Cluster:
     heuristics: list[str] = field(default_factory=list)
     sanctioned_member: str = ""
     sanctioned_entity: str = ""
+    risk_score: int = 0          # 0-100 aggregate risk
+    actor: str = ""              # attributed known actor, if any
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -201,6 +260,8 @@ class Cluster:
             "heuristics": sorted(set(self.heuristics)),
             "sanctioned_member": self.sanctioned_member,
             "sanctioned_entity": self.sanctioned_entity,
+            "risk_score": self.risk_score,
+            "actor": self.actor,
         }
 
 
@@ -212,6 +273,7 @@ class TraceResult:
     findings: list[Finding]
     clusters: list[Cluster]
     max_hops_scanned: int
+    dirty_value_total: float = 0.0
 
     def counts(self) -> dict[str, int]:
         c = {k: 0 for k in SEVERITY_ORDER}
@@ -240,6 +302,7 @@ class TraceResult:
             "total_addresses": self.total_addresses,
             "max_hops_scanned": self.max_hops_scanned,
             "max_severity": self.max_severity,
+            "dirty_value_total": round(self.dirty_value_total, 8),
             "counts": self.counts(),
             "findings": [f.to_dict() for f in self.findings],
             "clusters": [c.to_dict() for c in self.clusters],
@@ -342,8 +405,7 @@ class _UnionFind:
 # ---------------------------------------------------------------------------
 # Clustering heuristics
 # ---------------------------------------------------------------------------
-def _is_likely_change(out_addr: str, tx: Transaction,
-                      seen: set[str]) -> bool:
+def _is_likely_change(out_addr: str, tx: Transaction, seen: set[str]) -> bool:
     """One-time change-address heuristic.
 
     A change output is the *fresh* output address (never seen before in the
@@ -353,12 +415,28 @@ def _is_likely_change(out_addr: str, tx: Transaction,
     """
     if out_addr in seen:
         return False
-    if _norm_addr(out_addr) in {_norm_addr(a) for a in tx.inputs}:
+    in_set = {_norm_addr(a) for a in tx.inputs}
+    if _norm_addr(out_addr) in in_set:
         return False
     fresh = [o for o in tx.outputs
-             if o not in seen and _norm_addr(o) not in
-             {_norm_addr(a) for a in tx.inputs}]
+             if o not in seen and _norm_addr(o) not in in_set]
     return len(tx.outputs) >= 2 and len(fresh) == 1 and fresh[0] == out_addr
+
+
+def _cluster_risk(cluster: "Cluster") -> int:
+    """Aggregate 0-100 risk score for a cluster."""
+    score = 0
+    if cluster.sanctioned_member:
+        score += 80
+    for a in cluster.addresses:
+        tag = actor_tag(a)
+        if tag and tag.get("category") == "mixer":
+            score += 25
+    if "change_address" in cluster.heuristics:
+        score += 5
+    if len(cluster.addresses) >= 5:
+        score += 5
+    return min(100, score)
 
 
 def cluster_addresses(txs: Iterable[Transaction]) -> list[Cluster]:
@@ -426,6 +504,13 @@ def cluster_addresses(txs: Iterable[Transaction]) -> list[Cluster]:
                 c.sanctioned_member = a
                 c.sanctioned_entity = hit["entity"]
                 break
+        # Attribute a known actor, if any member is tagged.
+        for a in c.addresses:
+            tag = actor_tag(a)
+            if tag:
+                c.actor = tag["actor"]
+                break
+        c.risk_score = _cluster_risk(c)
         clusters.append(c)
     return clusters
 
@@ -437,10 +522,8 @@ def _build_adjacency(txs: list[Transaction]) -> dict[str, set[str]]:
     """Undirected counterparty graph: every input<->output pair in a tx."""
     adj: dict[str, set[str]] = {}
     for tx in txs:
-        addrs = [_norm_addr(a) for a in (tx.inputs + tx.outputs) if a]
-        for a in addrs:
-            adj.setdefault(a, set())
-        # connect inputs to outputs (the value-flow edges)
+        for a in (tx.inputs + tx.outputs):
+            adj.setdefault(_norm_addr(a), set())
         for src in {_norm_addr(a) for a in tx.inputs if a}:
             for dst in {_norm_addr(a) for a in tx.outputs if a}:
                 if src != dst:
@@ -468,10 +551,127 @@ def _hop_distances(adj: dict[str, set[str]],
 
 
 # ---------------------------------------------------------------------------
+# Tainted-flow (taint propagation)
+# ---------------------------------------------------------------------------
+def propagate_taint(txs: list[Transaction],
+                    sources: set[str]) -> dict[str, dict[str, float]]:
+    """Forward poison/haircut taint propagation from sanctioned sources.
+
+    For each address, returns {"taint": fraction in [0,1], "dirty": amount}.
+
+    Model: a sanctioned source's own outgoing value is 100% dirty. For every
+    subsequent transaction, the dirty value entering on the inputs is the sum
+    of (input_address_taint * notional). Following the haircut model, that
+    dirty value is spread proportionally across the outputs, so each output
+    address accumulates dirty value and a taint fraction = dirty / received.
+
+    Transactions are processed in input order (assumed roughly chronological,
+    as in an exported graph). This is a deliberately simple, deterministic
+    approximation of the propagation done by Elliptic / GraphSense.
+    """
+    sources = {_norm_addr(s) for s in sources}
+    # received[addr] = total value ever received by addr (denominator)
+    received: dict[str, float] = {}
+    dirty: dict[str, float] = {s: 0.0 for s in sources}
+
+    # Seed: a sanctioned source taints everything it sends.
+    for tx in txs:
+        val = tx.value if tx.value > 0 else 1.0
+        ins = [_norm_addr(a) for a in tx.inputs if a]
+        outs = [_norm_addr(a) for a in tx.outputs if a]
+        if not outs:
+            continue
+
+        # Dirty value entering this tx from its inputs.
+        if any(i in sources for i in ins):
+            dirty_in = val  # a source's spend is fully dirty
+        else:
+            # Sum dirty fraction carried by each input address.
+            dirty_in = 0.0
+            for i in ins:
+                r = received.get(i, 0.0)
+                if r > 0:
+                    frac = min(1.0, dirty.get(i, 0.0) / r)
+                    dirty_in += frac * (val / max(1, len(ins)))
+
+        per_out_value = val / len(outs)
+        per_out_dirty = (dirty_in / len(outs)) if dirty_in else 0.0
+        for o in outs:
+            received[o] = received.get(o, 0.0) + per_out_value
+            if per_out_dirty:
+                dirty[o] = dirty.get(o, 0.0) + per_out_dirty
+
+    result: dict[str, dict[str, float]] = {}
+    for addr, dval in dirty.items():
+        if addr in sources or dval <= 1e-12:
+            continue
+        rec = received.get(addr, dval)
+        frac = min(1.0, dval / rec) if rec > 0 else 1.0
+        result[addr] = {"taint": frac, "dirty": dval}
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Laundering-pattern heuristic: peeling chains
+# ---------------------------------------------------------------------------
+def detect_peel_chains(txs: list[Transaction],
+                       min_length: int = 3) -> list[list[str]]:
+    """Detect peeling chains (classic laundering / mixer payout pattern).
+
+    A peeling chain is a sequence of txs where each tx has a single dominant
+    input that splits into a small "peel" payment plus a large change output
+    that becomes the input of the next tx. Returns chains as ordered txid
+    lists of length >= min_length.
+    """
+    # Map: input address -> tx that spends it (single-input, two-output txs)
+    by_input: dict[str, Transaction] = {}
+    for tx in txs:
+        ins = [_norm_addr(a) for a in tx.inputs if a]
+        outs = [_norm_addr(a) for a in tx.outputs if a]
+        if len(ins) == 1 and len(outs) == 2:
+            by_input.setdefault(ins[0], tx)
+
+    chains: list[list[str]] = []
+    used: set[str] = set()
+    for tx in txs:
+        ins = [_norm_addr(a) for a in tx.inputs if a]
+        if len(ins) != 1 or tx.txid in used:
+            continue
+        # Follow the change output forward.
+        chain = [tx.txid]
+        current = tx
+        guard = 0
+        while guard < len(txs):
+            guard += 1
+            outs = [_norm_addr(a) for a in current.outputs if a]
+            if len(outs) != 2:
+                break
+            nxt = None
+            for o in outs:
+                cand = by_input.get(o)
+                if cand and cand.txid not in chain:
+                    nxt = cand
+                    break
+            if not nxt:
+                break
+            chain.append(nxt.txid)
+            current = nxt
+        if len(chain) >= min_length:
+            chains.append(chain)
+            used.update(chain)
+    return chains
+
+
+# ---------------------------------------------------------------------------
 # Top-level analysis
 # ---------------------------------------------------------------------------
-def analyze(txs: list[Transaction], max_hops: int = 2) -> TraceResult:
-    """Screen for OFAC exposure and cluster addresses over a tx list."""
+def analyze(txs: list[Transaction], max_hops: int = 2,
+            taint_threshold: float = 0.0) -> TraceResult:
+    """Screen for OFAC exposure, propagate taint, and cluster a tx list.
+
+    `taint_threshold` suppresses indirect/taint findings below that taint
+    fraction (0.0 = report everything).
+    """
     txs = list(txs)
     all_addrs: set[str] = set()
     for tx in txs:
@@ -489,26 +689,63 @@ def analyze(txs: list[Transaction], max_hops: int = 2) -> TraceResult:
             findings.append(Finding(
                 severity="critical", kind="ofac_direct_hit", address=addr,
                 entity=hit["entity"], program=hit["program"], hops=0,
+                taint=1.0,
                 detail=f"Address on OFAC SDN list: {hit['entity']} "
-                       f"(program {hit['program']}, listed {hit['added']}).",
+                       f"({hit.get('category', 'sanctioned')}, program "
+                       f"{hit['program']}, listed {hit['added']}).",
             ))
 
-    # 2. Indirect exposure via hop distance from sanctioned sources.
-    if direct and max_hops > 0:
-        adj = _build_adjacency(txs)
-        dist = _hop_distances(adj, direct, max_hops)
-        for addr, hops in sorted(dist.items(), key=lambda kv: (kv[1], kv[0])):
-            if hops == 0 or addr in direct:
+    dirty_total = 0.0
+    if direct:
+        # 2. Indirect exposure via hop distance from sanctioned sources.
+        if max_hops > 0:
+            adj = _build_adjacency(txs)
+            dist = _hop_distances(adj, direct, max_hops)
+        else:
+            dist = {}
+
+        # 3. Value-weighted taint propagation.
+        taint = propagate_taint(txs, direct)
+        dirty_total = sum(v["dirty"] for v in taint.values())
+
+        # Emit one combined exposure finding per downstream address.
+        downstream = sorted(
+            set(dist) | set(taint),
+            key=lambda a: (dist.get(a, 99), a))
+        for addr in downstream:
+            if addr in direct:
                 continue
-            sev = "high" if hops == 1 else "medium"
+            hops = dist.get(addr, 0)
+            tinfo = taint.get(addr, {})
+            tfrac = float(tinfo.get("taint", 0.0))
+            dval = float(tinfo.get("dirty", 0.0))
+            if tfrac < taint_threshold:
+                continue
+            if hops == 1:
+                sev = "high"
+            elif tfrac >= 0.5:
+                sev = "high"
+            elif hops >= 2 or tfrac > 0:
+                sev = "medium"
+            else:
+                continue
+            bits = []
+            if hops:
+                bits.append(f"{hops} hop(s) from a sanctioned address")
+            if tfrac:
+                bits.append(f"{tfrac * 100:.1f}% tainted "
+                            f"({dval:.4f} {asset} dirty value)")
+            tag = actor_tag(addr)
+            if tag:
+                bits.append(f"attributed actor: {tag['actor']} "
+                            f"({tag['category']})")
             findings.append(Finding(
                 severity=sev, kind="ofac_indirect_exposure", address=addr,
-                hops=hops,
-                detail=f"{hops} hop(s) from a sanctioned address; "
-                       f"transacts with OFAC-listed entity (tainted flow).",
+                hops=hops, taint=tfrac, dirty_value=dval,
+                detail="; ".join(bits) + " — tainted flow from OFAC entity.",
             ))
 
-    # 3. Clustering, with sanctions inheritance.
+    # 4. Clustering, with sanctions inheritance + risk scoring.
     clusters = cluster_addresses(txs)
     for c in clusters:
         if c.sanctioned_member:
@@ -518,12 +755,23 @@ def analyze(txs: list[Transaction], max_hops: int = 2) -> TraceResult:
                 address=c.sanctioned_member, entity=c.sanctioned_entity,
                 hops=0,
                 detail=f"Cluster #{c.cluster_id} ({len(c.addresses)} addresses, "
-                       f"heuristics {','.join(c.heuristics) or 'none'}) shares "
-                       f"wallet control with sanctioned {c.sanctioned_entity}. "
+                       f"risk {c.risk_score}/100, heuristics "
+                       f"{','.join(c.heuristics) or 'none'}) shares wallet "
+                       f"control with sanctioned {c.sanctioned_entity}. "
                        f"{len(clean)} co-owned address(es) inherit the taint.",
             ))
 
-    findings.sort(key=lambda f: (-SEVERITY_ORDER[f.severity], f.hops, f.address))
+    # 5. Peeling-chain laundering pattern.
+    for chain in detect_peel_chains(txs):
+        findings.append(Finding(
+            severity="medium", kind="peel_chain", address=chain[0],
+            detail=f"Peeling chain of {len(chain)} txs "
+                   f"({' -> '.join(chain)}) — classic layering/laundering "
+                   f"pattern (each hop sheds a small peel + forwards change).",
+        ))
+
+    findings.sort(key=lambda f: (-SEVERITY_ORDER[f.severity], f.hops,
+                                 -f.taint, f.address))
 
     return TraceResult(
         asset=asset,
@@ -532,4 +780,5 @@ def analyze(txs: list[Transaction], max_hops: int = 2) -> TraceResult:
         findings=findings,
         clusters=clusters,
         max_hops_scanned=max_hops,
+        dirty_value_total=dirty_total,
     )

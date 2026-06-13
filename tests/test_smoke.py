@@ -2,106 +2,105 @@
 import json
 import os
 import sys
-import tempfile
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from cryptotrace import (  # noqa: E402
-    TOOL_NAME, TOOL_VERSION, classify_address, cluster_addresses,
-    sanctions_xref, investigate, Transfer,
+    TOOL_NAME,
+    TOOL_VERSION,
+    analyze,
+    cluster_addresses,
+    is_sanctioned,
+    ofac_entries,
+    parse_txs,
 )
 from cryptotrace.cli import main  # noqa: E402
 
-DEMO = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                    "demos", "01-basic", "transfers.json")
+DEMO = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "demos", "02-deep", "tx_graph.json",
+)
+
+# A real OFAC SDN address (SUEX OTC) used in the demo graph.
+SDN_BTC = "1J7uHGYDhd4LwwTgkUCTCgnPmExgzqUw1f"
 
 
-class TestClassify(unittest.TestCase):
-    def test_eth(self):
-        self.assertEqual(classify_address("0x" + "a" * 40), "eth")
+class TestMetadata(unittest.TestCase):
+    def test_constants(self):
+        self.assertEqual(TOOL_NAME, "cryptotrace")
+        self.assertTrue(TOOL_VERSION)
 
-    def test_btc_legacy(self):
-        self.assertEqual(classify_address("1NDyJtNTjmwk5xPNhjgAMu4HDHigtobu1s"), "btc-legacy")
-
-    def test_bech32(self):
-        self.assertEqual(classify_address("bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq"), "btc-bech32")
-
-    def test_invalid(self):
-        self.assertEqual(classify_address("not-an-address"), "invalid")
-        self.assertEqual(classify_address("0x123"), "invalid")
-
-
-class TestClustering(unittest.TestCase):
-    def test_cospend_merges(self):
-        a, b, c = "0x" + "a" * 40, "0x" + "b" * 40, "0x" + "c" * 40
-        ts = [Transfer(src=a, dst=c, inputs=[a, b])]
-        cl = cluster_addresses(ts)
-        self.assertEqual(cl[a], cl[b])  # co-spent -> same cluster
-        self.assertNotEqual(cl[a], cl[c])  # destination separate
+    def test_sdn_bundle(self):
+        self.assertGreaterEqual(len(ofac_entries()), 18)
 
 
 class TestSanctions(unittest.TestCase):
     def test_hit(self):
-        hits = sanctions_xref(["0x722122df12d4e14e13ac3b6895a86e84145b6967"])
-        self.assertEqual(len(hits), 1)
-        self.assertEqual(hits[0]["category"], "sanctioned")
+        hit = is_sanctioned(SDN_BTC)
+        self.assertIsNotNone(hit)
+        self.assertEqual(hit["entity"], "SUEX OTC")
+
+    def test_eth_case_insensitive(self):
+        self.assertIsNotNone(
+            is_sanctioned("0x8589427373D6D84E98730D7795D8F6F8731FDA16"))
 
     def test_no_hit(self):
-        self.assertEqual(sanctions_xref(["0x" + "f" * 40]), [])
-
-    def test_case_insensitive(self):
-        upper = "0x722122DF12D4E14E13AC3B6895A86E84145B6967"
-        self.assertEqual(len(sanctions_xref([upper])), 1)
+        self.assertIsNone(is_sanctioned("1SomeRandomCleanAddress0000000000"))
 
 
-class TestInvestigate(unittest.TestCase):
-    def test_demo_report(self):
+class TestParsing(unittest.TestCase):
+    def test_account_style(self):
+        txs = parse_txs('[{"hash":"x","from":"0xabc","to":"0xdef","asset":"ETH"}]')
+        self.assertEqual(len(txs), 1)
+        self.assertEqual(txs[0].inputs, ["0xabc"])
+        self.assertEqual(txs[0].outputs, ["0xdef"])
+
+    def test_utxo_style(self):
+        txs = parse_txs('[{"txid":"a","inputs":["1AAA","1BBB"],"outputs":["1CCC"]}]')
+        self.assertEqual(txs[0].inputs, ["1AAA", "1BBB"])
+
+
+class TestClustering(unittest.TestCase):
+    def test_cospend_merges(self):
+        txs = parse_txs('[{"txid":"a","inputs":["1AAA","1BBB"],"outputs":["1CCC"]}]')
+        clusters = cluster_addresses(txs)
+        merged = [c for c in clusters
+                  if "1AAA" in c.addresses and "1BBB" in c.addresses]
+        self.assertEqual(len(merged), 1)
+        self.assertNotIn("1CCC", merged[0].addresses)
+
+
+class TestAnalyze(unittest.TestCase):
+    def test_clean_graph(self):
+        txs = parse_txs('[{"txid":"c1","inputs":["1Clean1"],"outputs":["1Clean2"]}]')
+        res = analyze(txs)
+        self.assertEqual(
+            [f for f in res.findings if f.kind.startswith("ofac")], [])
+        self.assertEqual(res.max_severity, "info")
+
+    def test_demo_graph_serializable(self):
         with open(DEMO, encoding="utf-8") as fh:
-            rows = json.load(fh)
-        ts = [Transfer(src=r["src"], dst=r["dst"], value=r.get("value", 0),
-                       inputs=r.get("inputs", [])) for r in rows]
-        rep = investigate(ts)
-        self.assertGreaterEqual(rep["summary"]["sanctioned_clusters"], 1)
-        self.assertGreaterEqual(rep["summary"]["flagged_addresses"], 1)
-        # co-spent aaa/bbb share a cluster
-        prof = {a["address"]: a for a in rep["addresses"]}
-        self.assertEqual(prof["0x" + "a" * 40]["cluster_id"],
-                         prof["0x" + "b" * 40]["cluster_id"])
-
-    def test_json_serializable(self):
-        rep = investigate([Transfer(src="0x" + "1" * 40, dst="0x" + "2" * 40, value=1.0)])
-        json.dumps(rep)  # must not raise
+            res = analyze(parse_txs(fh.read()))
+        json.dumps(res.to_dict())  # must not raise
+        self.assertEqual(res.max_severity, "critical")
 
 
 class TestCLI(unittest.TestCase):
-    def test_version_constants(self):
-        self.assertEqual(TOOL_NAME, "cryptotrace")
-        self.assertTrue(TOOL_VERSION)
+    def test_check_sdn_exit_1(self):
+        self.assertEqual(main(["check", SDN_BTC]), 1)
 
-    def test_investigate_json(self):
-        self.assertEqual(main(["--format", "json", "investigate", DEMO]), 0)
+    def test_check_clean_exit_0(self):
+        self.assertEqual(main(["check", "1TotallyCleanAddress00000000000000"]), 0)
 
-    def test_xref_hit_exit_2(self):
-        self.assertEqual(main(["xref", "0x722122df12d4e14e13ac3b6895a86e84145b6967"]), 2)
+    def test_screen_demo_json_exit_1(self):
+        self.assertEqual(main(["screen", DEMO, "--format", "json"]), 1)
 
-    def test_xref_clean_exit_0(self):
-        self.assertEqual(main(["xref", "0x" + "e" * 40]), 0)
+    def test_sdn_listing_exit_0(self):
+        self.assertEqual(main(["sdn", "--format", "json"]), 0)
 
-    def test_classify_invalid_exit_1(self):
-        self.assertEqual(main(["classify", "garbage"]), 1)
-
-    def test_bad_file_exit_1(self):
-        self.assertEqual(main(["investigate", "/no/such/file.json"]), 1)
-
-    def test_bad_json_exit_1(self):
-        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
-            f.write("{not json")
-            path = f.name
-        try:
-            self.assertEqual(main(["investigate", path]), 1)
-        finally:
-            os.unlink(path)
+    def test_bad_path_exit_2(self):
+        self.assertEqual(main(["screen", "/no/such/file.json"]), 2)
 
 
 if __name__ == "__main__":
