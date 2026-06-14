@@ -84,13 +84,25 @@ def _flagged(res: TraceResult) -> bool:
 
 
 def _cmd_screen(args: argparse.Namespace) -> int:
+    if args.max_hops < 0:
+        print("error: --max-hops must be >= 0", file=sys.stderr)
+        return 2
     try:
         text = _read(args.txfile)
     except OSError as exc:
         print(f"error: cannot read tx file: {exc}", file=sys.stderr)
         return 2
-    res = analyze(parse_txs(text), max_hops=args.max_hops,
-                  taint_threshold=args.min_taint)
+    try:
+        txs = parse_txs(text)
+    except Exception as exc:
+        print(f"error: failed to parse tx file: {exc}", file=sys.stderr)
+        return 2
+    try:
+        res = analyze(txs, max_hops=args.max_hops,
+                      taint_threshold=args.min_taint)
+    except Exception as exc:
+        print(f"error: analysis failed: {exc}", file=sys.stderr)
+        return 2
 
     out = (json.dumps(res.to_dict(), indent=2)
            if args.format == "json" else _render_table(res))
@@ -115,7 +127,11 @@ def _cmd_cluster(args: argparse.Namespace) -> int:
     except OSError as exc:
         print(f"error: cannot read tx file: {exc}", file=sys.stderr)
         return 2
-    clusters = cluster_addresses(parse_txs(text))
+    try:
+        clusters = cluster_addresses(parse_txs(text))
+    except Exception as exc:
+        print(f"error: clustering failed: {exc}", file=sys.stderr)
+        return 2
     if args.format == "json":
         print(json.dumps([c.to_dict() for c in clusters], indent=2))
     else:
@@ -371,7 +387,14 @@ def _build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
-    return args.func(args)
+    try:
+        return args.func(args)
+    except KeyboardInterrupt:
+        print("\ninterrupted", file=sys.stderr)
+        return 130
+    except Exception as exc:  # noqa: BLE001
+        print(f"error: unexpected failure: {exc}", file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":

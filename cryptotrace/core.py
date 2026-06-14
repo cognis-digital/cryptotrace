@@ -527,6 +527,8 @@ def _hop_distances(adj: dict[str, set[str]],
 # ---------------------------------------------------------------------------
 def analyze(txs: list[Transaction], max_hops: int = 2) -> TraceResult:
     """Screen for OFAC exposure and cluster addresses over a tx list."""
+    if not isinstance(max_hops, int) or max_hops < 0:
+        raise ValueError(f"max_hops must be a non-negative integer, got {max_hops!r}")
     txs = list(txs)
     all_addrs: set[str] = set()
     for tx in txs:
@@ -652,6 +654,8 @@ def sanctions_xref(addresses: list[str]) -> list[dict[str, Any]]:
     has at minimum ``address``, ``category`` (always ``"sanctioned"``),
     ``entity``, and ``program`` keys.
     """
+    if addresses is None:
+        return []
     results: list[dict[str, Any]] = []
     for addr in addresses:
         entry = is_sanctioned(addr)
@@ -685,6 +689,9 @@ def investigate(
     * ``addresses`` — per-address profile list (address, cluster_id,
                       sanctioned flag, category)
     """
+    if not isinstance(max_hops, int) or max_hops < 0:
+        raise ValueError(f"max_hops must be a non-negative integer, got {max_hops!r}")
+    transfers = list(transfers) if transfers is not None else []
     # Convert Transfer → Transaction so we can reuse the full analysis engine.
     txs: list[Transaction] = []
     for i, t in enumerate(transfers):

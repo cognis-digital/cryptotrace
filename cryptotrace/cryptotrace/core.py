@@ -673,6 +673,8 @@ def analyze(txs: list[Transaction], max_hops: int = 2,
     `taint_threshold` suppresses indirect/taint findings below that taint
     fraction (0.0 = report everything).
     """
+    if not isinstance(max_hops, int) or max_hops < 0:
+        raise ValueError(f"max_hops must be a non-negative integer, got {max_hops!r}")
     txs = list(txs)
     all_addrs: set[str] = set()
     for tx in txs:
@@ -845,6 +847,8 @@ def sanctions_xref(addresses: list[str]) -> list[dict[str, Any]]:
     has at minimum ``address``, ``category`` (always ``"sanctioned"``),
     ``entity``, and ``program`` keys.
     """
+    if addresses is None:
+        return []
     results: list[dict[str, Any]] = []
     for addr in addresses:
         entry = is_sanctioned(addr)
@@ -927,6 +931,9 @@ def investigate(
     * ``addresses`` — per-address profile list (address, cluster_id,
                       sanctioned flag, category)
     """
+    if not isinstance(max_hops, int) or max_hops < 0:
+        raise ValueError(f"max_hops must be a non-negative integer, got {max_hops!r}")
+    transfers = list(transfers) if transfers is not None else []
     txs: list[Transaction] = []
     for i, t in enumerate(transfers):
         inps = list(t.inputs) if t.inputs else [t.src]
