@@ -6,6 +6,7 @@ import json
 import sys
 
 from . import TOOL_NAME, TOOL_VERSION
+from . import datafeeds
 from .core import (
     SEVERITY_ORDER,
     TraceResult,
@@ -81,12 +82,28 @@ def _flagged(res: TraceResult) -> bool:
                for f in res.findings)
 
 
+def _enrich_from_feed(args: argparse.Namespace) -> None:
+    """Optionally merge the live OFAC SDN feed into the screening index so the
+    screen covers the full designation set, not just the bundled seed."""
+    if not getattr(args, "feed", False):
+        return
+    from . import feeds as _feeds
+    try:
+        n = _feeds.load_sdn_into_index(offline=getattr(args, "offline", False))
+        print(f"[feeds] merged {n} live OFAC SDN address(es) into the index",
+              file=sys.stderr)
+    except (ValueError, KeyError, FileNotFoundError, ConnectionError) as exc:
+        print(f"[feeds] warning: could not load OFAC SDN feed: {exc}",
+              file=sys.stderr)
+
+
 def _cmd_screen(args: argparse.Namespace) -> int:
     try:
         text = _read(args.txfile)
     except OSError as exc:
         print(f"error: cannot read tx file: {exc}", file=sys.stderr)
         return 2
+    _enrich_from_feed(args)
     res = analyze(parse_txs(text), max_hops=args.max_hops,
                   taint_threshold=args.min_taint)
 
@@ -187,6 +204,7 @@ def _cmd_peel(args: argparse.Namespace) -> int:
 
 
 def _cmd_check(args: argparse.Namespace) -> int:
+    _enrich_from_feed(args)
     hit = is_sanctioned(args.address)
     tag = actor_tag(args.address)
     if args.format == "json":
@@ -207,6 +225,55 @@ def _cmd_check(args: argparse.Namespace) -> int:
         else:
             print(f"clean: {args.address} is not on the bundled OFAC SDN list")
     return 1 if hit else 0
+
+
+def _cmd_feeds(args: argparse.Namespace) -> int:
+    from . import feeds as _feeds
+
+    if args.feeds_cmd == "list":
+        rows = _feeds.relevant_feeds()
+        if args.format == "json":
+            print(json.dumps(rows, indent=2))
+        else:
+            print(f"Feeds wired into {TOOL_NAME}: {len(rows)}")
+            for f in rows:
+                age = datafeeds.cached_age_hours(f["id"])
+                fresh = "uncached" if age is None else f"{age:.1f}h old"
+                print(f"  {f['id']:12} [{fresh:9}] {f['name']}")
+                print(f"               {f['url']}")
+        return 0
+
+    if args.feeds_cmd == "update":
+        try:
+            path = _feeds.update_feed(args.id)
+        except (ValueError, KeyError, ConnectionError) as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
+        print(f"updated {args.id} -> {path}")
+        return 0
+
+    if args.feeds_cmd == "get":
+        try:
+            csv_text = _feeds.get_feed(args.id, offline=args.offline)
+            entries = _feeds.parse_sdn_addresses(
+                csv_text if isinstance(csv_text, str)
+                else csv_text.decode("utf-8", "replace"))
+        except (ValueError, KeyError, FileNotFoundError, ConnectionError) as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
+        if args.format == "json":
+            print(json.dumps({"feed": args.id,
+                              "addresses": entries,
+                              "summary": _feeds.sdn_summary(entries)}, indent=2))
+        else:
+            print(f"OFAC SDN crypto addresses in feed: {len(entries)}")
+            for e in entries:
+                print(f"  [{e['asset']:4}] {e['address']:46} {e['entity']} "
+                      f"({e['program']})")
+            print(f"  summary: {_feeds.sdn_summary(entries)}")
+        return 0
+
+    return 2
 
 
 def _cmd_sdn(args: argparse.Namespace) -> int:
@@ -249,6 +316,11 @@ def _build_parser() -> argparse.ArgumentParser:
     s.add_argument("--min-taint", type=float, default=0.0,
                    help="suppress indirect findings below this taint fraction")
     s.add_argument("-o", "--output", help="write report to this file")
+    s.add_argument("--feed", action="store_true",
+                   help="enrich screening with the live OFAC SDN feed before "
+                        "analysis (datafeeds-backed)")
+    s.add_argument("--offline", action="store_true",
+                   help="with --feed, serve the SDN feed from cache only")
     s.set_defaults(func=_cmd_screen)
 
     c = sub.add_parser("cluster", parents=[fmt],
@@ -273,11 +345,34 @@ def _build_parser() -> argparse.ArgumentParser:
     k = sub.add_parser("check", parents=[fmt],
                        help="check a single address against the SDN/actor tables")
     k.add_argument("address", help="address to screen")
+    k.add_argument("--feed", action="store_true",
+                   help="enrich with the live OFAC SDN feed before checking")
+    k.add_argument("--offline", action="store_true",
+                   help="with --feed, serve the SDN feed from cache only")
     k.set_defaults(func=_cmd_check)
 
     sdn = sub.add_parser("sdn", parents=[fmt],
                          help="list the bundled OFAC SDN crypto addresses")
     sdn.set_defaults(func=_cmd_sdn)
+
+    # `feeds` — edge/air-gap live OFAC SDN ingestion (datafeeds-backed).
+    fe = sub.add_parser(
+        "feeds",
+        help="ingest the live OFAC SDN list (catalog feed 'ofac-sdn')")
+    fe.set_defaults(func=_cmd_feeds)
+    fesub = fe.add_subparsers(dest="feeds_cmd", required=True)
+    fl = fesub.add_parser("list", parents=[fmt],
+                          help="list the feeds wired into cryptotrace")
+    fl.set_defaults(func=_cmd_feeds)
+    fu = fesub.add_parser("update", help="fetch + cache a feed (online)")
+    fu.add_argument("id", nargs="?", default="ofac-sdn")
+    fu.set_defaults(func=_cmd_feeds)
+    fg = fesub.add_parser("get", parents=[fmt],
+                          help="parse SDN crypto addresses from the feed")
+    fg.add_argument("id", nargs="?", default="ofac-sdn")
+    fg.add_argument("--offline", action="store_true",
+                    help="serve from cache only; never touch the network")
+    fg.set_defaults(func=_cmd_feeds)
 
     return p
 

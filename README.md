@@ -51,7 +51,7 @@ cryptotrace screen txs.json            # → prioritized findings in seconds
 
 ## Contents
 
-- [Why cryptotrace?](#why) · [Features](#features) · [Quick start](#quick-start) · [Example](#example) · [Demos](#demos) · [Architecture](#architecture) · [AI stack](#ai-stack) · [How it compares](#how-it-compares) · [Integrations](#integrations) · [Install anywhere](#install-anywhere) · [Related](#related) · [Contributing](#contributing)
+- [Why cryptotrace?](#why) · [Features](#features) · [Quick start](#quick-start) · [Live OFAC SDN feed](#feeds) · [Example](#example) · [Demos](#demos) · [Architecture](#architecture) · [AI stack](#ai-stack) · [How it compares](#how-it-compares) · [Integrations](#integrations) · [Install anywhere](#install-anywhere) · [Related](#related) · [Contributing](#contributing)
 
 <a name="why"></a>
 ## Why cryptotrace?
@@ -66,6 +66,7 @@ Free-tier blockchain investigator — ETH/BTC clustering + sanctions xref — wi
 ## Features
 
 - ✅ OFAC SDN screening (direct hits against bundled real SDN crypto wallets)
+- ✅ **Live OFAC SDN ingestion** — refresh screening from the authoritative Treasury list, keyless, **offline / air-gap deployable**
 - ✅ Indirect exposure by hop distance + **value-weighted taint propagation**
 - ✅ Address clustering (common-input-ownership + change-address heuristics)
 - ✅ Cluster sanctions inheritance + known-actor attribution + risk scoring
@@ -89,7 +90,59 @@ cryptotrace taint txs.json                    # value-weighted dirty-flow trace
 cryptotrace peel txs.json                     # peeling-chain laundering pattern
 cryptotrace check 0x722122df12d4e14e13ac3b6895a86e84145b6967   # single address
 cryptotrace sdn                               # list bundled OFAC SDN addresses
+cryptotrace feeds update ofac-sdn             # fetch the live OFAC SDN list
+cryptotrace screen txs.json --feed            # screen against the LIVE SDN set
 ```
+
+<div align="right"><a href="#top">↑ back to top</a></div>
+
+<a name="feeds"></a>
+## Live OFAC SDN feed — edge / air-gap deployable
+
+The bundled SDN table is a curated seed. The `feeds` layer keeps the screen
+**current** by ingesting the authoritative **US Treasury OFAC SDN list** and
+merging every published *Digital Currency Address* into the screening index —
+so addresses newly designated by OFAC (and absent from the seed) become
+screenable.
+
+**Real source** (keyless, no API key):
+
+| Feed id | Source | URL |
+|---|---|---|
+| `ofac-sdn` | US Treasury OFAC Specially Designated Nationals list | `https://www.treasury.gov/ofac/downloads/sdn.csv` |
+
+The ingestion engine ([`cryptotrace/datafeeds.py`](cryptotrace/datafeeds.py),
+catalog [`cryptotrace/data_feeds_2026.json`](cryptotrace/data_feeds_2026.json))
+is **standard-library only**: keyless HTTPS fetch → on-disk cache → re-serve.
+
+```bash
+cryptotrace feeds list                        # feeds wired into this tool
+cryptotrace feeds update ofac-sdn             # fetch + cache (online, once)
+cryptotrace feeds get ofac-sdn                # parse SDN crypto addresses
+cryptotrace feeds get ofac-sdn --offline      # parse from cache, no network
+cryptotrace screen txs.json --feed            # enrich screen with the live SDN set
+cryptotrace check <addr> --feed --offline     # check against cached live SDN set
+```
+
+### Offline / air-gap workflow
+
+Every read supports `--offline` (serve from cache, never touch the network).
+The cache location is set with `COGNIS_FEEDS_CACHE`. To move the feed into a
+disconnected enclave (sneakernet):
+
+```bash
+# on a connected host
+cryptotrace feeds update ofac-sdn
+python -m cryptotrace.datafeeds snapshot-export sdn.tar.gz
+
+# carry sdn.tar.gz across the air gap, then inside the enclave:
+python -m cryptotrace.datafeeds snapshot-import sdn.tar.gz
+cryptotrace screen txs.json --feed --offline   # never reaches the network
+```
+
+See [`demos/09-ofac-feed-enrichment/`](demos/09-ofac-feed-enrichment/) for an
+end-to-end offline walkthrough. The test suite exercises the whole path against
+a committed trimmed fixture with the network blocked.
 
 <div align="right"><a href="#top">↑ back to top</a></div>
 
