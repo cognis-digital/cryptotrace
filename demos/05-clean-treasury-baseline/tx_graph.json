@@ -1,0 +1,37 @@
+{
+  "_comment": "Synthetic ETH tx graph for a CLEAN DAO/treasury multisig. No address is on the OFAC SDN list, so a correct screen produces ZERO sanctions findings and exits 0. This is the negative-control demo: it shows CRYPTOTRACE does not over-flag normal activity. All addresses are fictional placeholders.",
+  "transactions": [
+    {
+      "txid": "0xpayroll01",
+      "asset": "ETH",
+      "value": 25.0,
+      "timestamp": "2026-05-01T10:00:00Z",
+      "inputs": ["0xtreasury00000000000000000000000000000001"],
+      "outputs": ["0xcontributor0000000000000000000000000a01", "0xtreasury00000000000000000000000000000001"]
+    },
+    {
+      "txid": "0xgrant01",
+      "asset": "ETH",
+      "value": 40.0,
+      "timestamp": "2026-05-03T14:20:00Z",
+      "inputs": ["0xtreasury00000000000000000000000000000001"],
+      "outputs": ["0xgrantee0000000000000000000000000000b002"]
+    },
+    {
+      "txid": "0xtopup01",
+      "asset": "ETH",
+      "value": 100.0,
+      "timestamp": "2026-05-05T09:15:00Z",
+      "inputs": ["0xmultisigsigner000000000000000000000c003"],
+      "outputs": ["0xtreasury00000000000000000000000000000001"]
+    },
+    {
+      "txid": "0xvendor01",
+      "asset": "ETH",
+      "value": 12.5,
+      "timestamp": "2026-05-07T16:45:00Z",
+      "inputs": ["0xtreasury00000000000000000000000000000001"],
+      "outputs": ["0xvendorpay000000000000000000000000000d04"]
+    }
+  ]
+}

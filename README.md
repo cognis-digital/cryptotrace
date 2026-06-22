@@ -17,7 +17,7 @@
 
 ```bash
 pip install cognis-cryptotrace
-cryptotrace scan .            # → prioritized findings in seconds
+cryptotrace screen txs.json            # → prioritized findings in seconds
 ```
 
 ## Usage — step by step
@@ -41,7 +41,7 @@ cryptotrace scan .            # → prioritized findings in seconds
    cryptotrace sdn
    ```
 
-4. **Read the result.** `screen` reports tx/address counts, clusters, sanctioned clusters, and findings by severity; add `--format json` (or `-o file`). Exit `1` when sanctioned exposure (critical/high/medium) is found, `0` otherwise. `cluster` groups addresses into single-entity wallets.
+4. **Read the result.** `screen` reports tx/address counts, clusters, sanctioned clusters, and findings by severity; add `--format json`, `--format sarif`, or `-o file`. Exit `1` when sanctioned exposure (critical/high/medium) is found, `0` otherwise. `cluster` groups addresses into single-entity wallets, `taint` propagates value-weighted dirty flow from SDN sources, and `peel` flags peeling-chain laundering.
 
 5. **Gate / pipe.** Stream transactions in and act on the result:
 
@@ -51,7 +51,7 @@ cryptotrace scan .            # → prioritized findings in seconds
 
 ## Contents
 
-- [Why cryptotrace?](#why) · [Features](#features) · [Quick start](#quick-start) · [Example](#example) · [Architecture](#architecture) · [AI stack](#ai-stack) · [How it compares](#how-it-compares) · [Integrations](#integrations) · [Install anywhere](#install-anywhere) · [Related](#related) · [Contributing](#contributing)
+- [Why cryptotrace?](#why) · [Features](#features) · [Quick start](#quick-start) · [Example](#example) · [Demos](#demos) · [Architecture](#architecture) · [AI stack](#ai-stack) · [How it compares](#how-it-compares) · [Integrations](#integrations) · [Install anywhere](#install-anywhere) · [Related](#related) · [Contributing](#contributing)
 
 <a name="why"></a>
 ## Why cryptotrace?
@@ -65,12 +65,13 @@ Free-tier blockchain investigator — ETH/BTC clustering + sanctions xref — wi
 <a name="features"></a>
 ## Features
 
-- ✅ Normalize
-- ✅ Classify Address
-- ✅ Cluster Addresses
-- ✅ Sanctions Xref
-- ✅ Investigate
-- ✅ Runs on Linux/macOS/Windows · Docker · devcontainer
+- ✅ OFAC SDN screening (direct hits against bundled real SDN crypto wallets)
+- ✅ Indirect exposure by hop distance + **value-weighted taint propagation**
+- ✅ Address clustering (common-input-ownership + change-address heuristics)
+- ✅ Cluster sanctions inheritance + known-actor attribution + risk scoring
+- ✅ Peeling-chain laundering-pattern detection
+- ✅ Output as table · JSON · **SARIF 2.1.0** (code-scanning / CI)
+- ✅ Runs on Linux/macOS/Windows · Docker · devcontainer · MCP-native
 - ✅ Ports in Python, JavaScript, Go, and Rust (`ports/`)
 
 <div align="right"><a href="#top">↑ back to top</a></div>
@@ -81,9 +82,13 @@ Free-tier blockchain investigator — ETH/BTC clustering + sanctions xref — wi
 ```bash
 pip install cognis-cryptotrace
 cryptotrace --version
-cryptotrace scan .                       # scan current project
-cryptotrace scan . --format json         # machine-readable
-cryptotrace scan . --fail-on high        # CI gate (non-zero exit)
+cryptotrace screen txs.json                  # OFAC + taint + clustering report
+cryptotrace screen txs.json --format json    # machine-readable
+cryptotrace screen txs.json --format sarif    # SARIF 2.1.0 for code-scanning
+cryptotrace taint txs.json                    # value-weighted dirty-flow trace
+cryptotrace peel txs.json                     # peeling-chain laundering pattern
+cryptotrace check 0x722122df12d4e14e13ac3b6895a86e84145b6967   # single address
+cryptotrace sdn                               # list bundled OFAC SDN addresses
 ```
 
 <div align="right"><a href="#top">↑ back to top</a></div>
@@ -92,11 +97,55 @@ cryptotrace scan . --fail-on high        # CI gate (non-zero exit)
 ## Example
 
 ```text
-$ cryptotrace scan .
-  [HIGH    ] CRY-001  example finding             (./src/app.py)
-  [MEDIUM  ] CRY-002  another signal              (./config.yaml)
+$ cryptotrace screen demos/01-tornado-cash-deposit/tx_graph.json
+CRYPTOTRACE report  (ETH)
+================================================================
+Transactions analyzed : 4
+Distinct addresses    : 5
+Findings              : 5 (critical=1, high=3, medium=1)
+Highest severity      : CRITICAL
 
-  2 findings · risk score 5 · 38ms
+Findings:
+  [CRITICAL] ofac_direct_hit        0x722122df12d4e14e13ac3b6895a86e84145b6967  <Tornado Cash>
+             Address on OFAC SDN list: Tornado Cash (mixer, program CYBER2, listed 2022-08-08).
+  [HIGH    ] ofac_indirect_exposure 0x3333...  <1 hop(s)>
+             1 hop(s) from a sanctioned address; 100.0% tainted (39.5000 ETH dirty value).
+```
+
+The same run as **SARIF 2.1.0** for GitHub/GitLab code-scanning:
+
+```bash
+cryptotrace screen tx_graph.json --format sarif -o cryptotrace.sarif
+# → upload with github/codeql-action/upload-sarif@v3
+```
+
+<div align="right"><a href="#top">↑ back to top</a></div>
+
+<a name="demos"></a>
+## Demos — real investigation scenarios
+
+Each folder under [`demos/`](demos/) is a self-contained, runnable scenario: a
+transaction graph in the tool's real input format plus a `SCENARIO.md` that
+explains where the data came from, the exact command, what to expect, and how
+to act. Every demo is verified to actually produce its findings. Each uses a
+**real, publicly-documented OFAC SDN address**; all other addresses are
+fictional placeholders.
+
+| Demo | Scenario | Exercises |
+|---|---|---|
+| [`01-tornado-cash-deposit`](demos/01-tornado-cash-deposit/) | Exchange screens a customer who routed ETH through Tornado Cash | direct hit · hop grading · taint |
+| [`02-deep`](demos/02-deep/) | SUEX OTC layering over a BTC graph | direct + indirect + clustering |
+| [`03-lazarus-bridge-exit`](demos/03-lazarus-bridge-exit/) | DPRK bridge-drain proceeds reach a Lazarus Group wallet | threat-actor attribution · fan-out taint |
+| [`04-peel-chain-laundering`](demos/04-peel-chain-laundering/) | Funds peeled out of Hydra Market down a laundering chain | `peel` pattern detection |
+| [`05-clean-treasury-baseline`](demos/05-clean-treasury-baseline/) | Clean DAO treasury — the negative control | exit 0 · no over-flagging |
+| [`06-garantex-cashout`](demos/06-garantex-cashout/) | Fraud proceeds cashed out **into** the sanctioned Garantex exchange | sink-side / hop-distance exposure |
+| [`07-cospend-cluster-taint`](demos/07-cospend-cluster-taint/) | Co-spend proves two wallets belong to a sanctioned entity | common-input clustering · sanctions inheritance |
+| [`08-dprk-mixer-chain`](demos/08-dprk-mixer-chain/) | Two chained DPRK mixers (Blender.io → Sinbad.io) | multi-source taint |
+
+```bash
+python -m cryptotrace screen demos/01-tornado-cash-deposit/tx_graph.json
+python -m cryptotrace peel   demos/04-peel-chain-laundering/tx_graph.json
+python -m cryptotrace taint  demos/08-dprk-mixer-chain/tx_graph.json
 ```
 
 <div align="right"><a href="#top">↑ back to top</a></div>
@@ -118,7 +167,7 @@ flowchart LR
 `cryptotrace` is interoperable with every popular way of using AI:
 
 - **MCP server** — `cryptotrace mcp` (Claude Desktop, Cursor, Cognis.Studio, [uncensored-fleet](https://github.com/cognis-digital/uncensored-fleet))
-- **OpenAI-compatible / JSON** — pipe `cryptotrace scan . --format json` into any agent or LLM
+- **OpenAI-compatible / JSON** — pipe `cryptotrace screen txs.json --format json` into any agent or LLM
 - **LangChain · CrewAI · AutoGen · LlamaIndex** — wrap the CLI/JSON as a tool in one line
 - **CI / scripts** — exit codes + SARIF for non-AI pipelines
 

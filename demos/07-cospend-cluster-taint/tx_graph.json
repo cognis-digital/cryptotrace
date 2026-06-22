@@ -1,0 +1,29 @@
+{
+  "_comment": "Synthetic BTC tx graph demonstrating COMMON-INPUT-OWNERSHIP clustering with sanctions inheritance. Transaction cospend1 spends a REAL OFAC SDN SUEX OTC address (12QtD5BFwRsdNsAZY76UVE1xyCGNTojH9h, CYBER2, listed 2021-09-21) TOGETHER with two other wallets in a single multi-input tx -- the common-input heuristic proves all three are one entity, so the whole cluster inherits the SUEX taint. Only the SUEX address is a real SDN entry; the rest are fictional placeholders.",
+  "transactions": [
+    {
+      "txid": "cospend1",
+      "asset": "BTC",
+      "value": 6.0,
+      "timestamp": "2026-01-20T11:00:00Z",
+      "inputs": ["12QtD5BFwRsdNsAZY76UVE1xyCGNTojH9h", "1CoSpendW000000000000000000000aaaa1", "1CoSpendW000000000000000000000bbbb2"],
+      "outputs": ["1Consolidated00000000000000000cccc3", "1CoSpendChg0000000000000000000dddd4"]
+    },
+    {
+      "txid": "forward1",
+      "asset": "BTC",
+      "value": 5.8,
+      "timestamp": "2026-01-21T09:30:00Z",
+      "inputs": ["1Consolidated00000000000000000cccc3"],
+      "outputs": ["1Downstream0000000000000000000eeee5"]
+    },
+    {
+      "txid": "topup1",
+      "asset": "BTC",
+      "value": 1.0,
+      "timestamp": "2026-01-19T08:00:00Z",
+      "inputs": ["1CoSpendW000000000000000000000aaaa1"],
+      "outputs": ["12QtD5BFwRsdNsAZY76UVE1xyCGNTojH9h", "1CoSpendW000000000000000000000aaaa1"]
+    }
+  ]
+}

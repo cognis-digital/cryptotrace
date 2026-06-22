@@ -1,0 +1,37 @@
+{
+  "_comment": "Synthetic ETH tx graph for CRYPTOTRACE. A customer wallet deposits into the REAL OFAC-sanctioned Tornado Cash router (0x722122df12d4e14e13ac3b6895a86e84145b6967, CYBER2, listed 2022-08-08) and a withdrawal lands two hops downstream. Only the Tornado Cash router is a real SDN address; all 0x-customer addresses are fictional placeholders.",
+  "transactions": [
+    {
+      "txid": "0xfund01",
+      "asset": "ETH",
+      "value": 48.0,
+      "timestamp": "2026-02-03T08:12:00Z",
+      "inputs": ["0x1111111111111111111111111111111111111111"],
+      "outputs": ["0x2222222222222222222222222222222222222222"]
+    },
+    {
+      "txid": "0xdeposit01",
+      "asset": "ETH",
+      "value": 40.0,
+      "timestamp": "2026-02-03T09:40:00Z",
+      "inputs": ["0x2222222222222222222222222222222222222222"],
+      "outputs": ["0x722122df12d4e14e13ac3b6895a86e84145b6967"]
+    },
+    {
+      "txid": "0xwithdraw01",
+      "asset": "ETH",
+      "value": 39.5,
+      "timestamp": "2026-02-05T17:05:00Z",
+      "inputs": ["0x722122df12d4e14e13ac3b6895a86e84145b6967"],
+      "outputs": ["0x3333333333333333333333333333333333333333"]
+    },
+    {
+      "txid": "0xcashout01",
+      "asset": "ETH",
+      "value": 39.0,
+      "timestamp": "2026-02-06T11:22:00Z",
+      "inputs": ["0x3333333333333333333333333333333333333333"],
+      "outputs": ["0x4444444444444444444444444444444444444444"]
+    }
+  ]
+}

@@ -115,9 +115,18 @@ class TestAnalysis(unittest.TestCase):
         self.assertIn("1Layer2Hop000000000000000000000cccc", two)
 
     def test_hop_severity_grading(self):
+        # v3 grading: a 1-hop counterparty is always "high"; deeper hops are
+        # "medium" UNLESS value-weighted taint is heavy (>=50%), in which case
+        # the finding is escalated to "high".
         for f in self.res.findings:
-            if f.kind == "ofac_indirect_exposure":
-                self.assertEqual(f.severity, "high" if f.hops == 1 else "medium")
+            if f.kind != "ofac_indirect_exposure":
+                continue
+            if f.hops == 1:
+                self.assertEqual(f.severity, "high")
+            elif f.taint >= 0.5:
+                self.assertEqual(f.severity, "high")
+            else:
+                self.assertEqual(f.severity, "medium")
 
     def test_max_severity(self):
         self.assertEqual(self.res.max_severity, "critical")

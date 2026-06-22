@@ -1,0 +1,37 @@
+{
+  "_comment": "Synthetic BTC tx graph. A scam/fraud proceeds wallet routes funds through one intermediate hop into the REAL OFAC SDN Garantex Europe OU exchange deposit address (1Fdyrt4iC91kAFRz9SiF44ZRzhCJqkLAFD, RUSSIA-EO14024, listed 2022-04-05) to cash out. Only the Garantex address is a real SDN entry; all others are fictional placeholders.",
+  "transactions": [
+    {
+      "txid": "victimpay1",
+      "asset": "BTC",
+      "value": 3.2,
+      "timestamp": "2026-02-18T13:00:00Z",
+      "inputs": ["1Victim00000000000000000000000000000001"],
+      "outputs": ["1ScamCollector000000000000000000000aaaa"]
+    },
+    {
+      "txid": "victimpay2",
+      "asset": "BTC",
+      "value": 2.7,
+      "timestamp": "2026-02-18T13:42:00Z",
+      "inputs": ["1Victim00000000000000000000000000000002"],
+      "outputs": ["1ScamCollector000000000000000000000aaaa"]
+    },
+    {
+      "txid": "hop1",
+      "asset": "BTC",
+      "value": 5.8,
+      "timestamp": "2026-02-19T08:05:00Z",
+      "inputs": ["1ScamCollector000000000000000000000aaaa"],
+      "outputs": ["1Intermediate00000000000000000000bbbb1"]
+    },
+    {
+      "txid": "cashout1",
+      "asset": "BTC",
+      "value": 5.7,
+      "timestamp": "2026-02-19T19:30:00Z",
+      "inputs": ["1Intermediate00000000000000000000bbbb1"],
+      "outputs": ["1Fdyrt4iC91kAFRz9SiF44ZRzhCJqkLAFD"]
+    }
+  ]
+}

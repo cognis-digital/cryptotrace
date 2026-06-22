@@ -1,0 +1,45 @@
+{
+  "_comment": "Synthetic ETH tx graph. A bridge-drain consolidation wallet forwards stolen ETH to a REAL OFAC SDN Lazarus Group (DPRK) address (0xa0e1c89ef1a489c9c7de96311ed5ce5d32c20e4b, DPRK3, listed 2022-08-08), which then fans the funds out to two fresh laundering wallets. Only the Lazarus address is a real SDN entry; all other addresses are fictional placeholders.",
+  "transactions": [
+    {
+      "txid": "0xdrain01",
+      "asset": "ETH",
+      "value": 600.0,
+      "timestamp": "2026-03-10T02:14:00Z",
+      "inputs": ["0xaaaa000000000000000000000000000000000001"],
+      "outputs": ["0xc0nso1idation000000000000000000000000001"]
+    },
+    {
+      "txid": "0xdrain02",
+      "asset": "ETH",
+      "value": 350.0,
+      "timestamp": "2026-03-10T02:51:00Z",
+      "inputs": ["0xaaaa000000000000000000000000000000000002"],
+      "outputs": ["0xc0nso1idation000000000000000000000000001"]
+    },
+    {
+      "txid": "0xforward01",
+      "asset": "ETH",
+      "value": 940.0,
+      "timestamp": "2026-03-10T05:30:00Z",
+      "inputs": ["0xc0nso1idation000000000000000000000000001"],
+      "outputs": ["0xa0e1c89ef1a489c9c7de96311ed5ce5d32c20e4b"]
+    },
+    {
+      "txid": "0xfanout01",
+      "asset": "ETH",
+      "value": 470.0,
+      "timestamp": "2026-03-11T19:00:00Z",
+      "inputs": ["0xa0e1c89ef1a489c9c7de96311ed5ce5d32c20e4b"],
+      "outputs": ["0xlaunder000000000000000000000000000000a1"]
+    },
+    {
+      "txid": "0xfanout02",
+      "asset": "ETH",
+      "value": 460.0,
+      "timestamp": "2026-03-11T19:06:00Z",
+      "inputs": ["0xa0e1c89ef1a489c9c7de96311ed5ce5d32c20e4b"],
+      "outputs": ["0xlaunder000000000000000000000000000000b2"]
+    }
+  ]
+}

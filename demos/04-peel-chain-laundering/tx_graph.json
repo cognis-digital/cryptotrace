@@ -1,0 +1,45 @@
+{
+  "_comment": "Synthetic BTC tx graph showing a classic PEELING CHAIN. Proceeds leave the REAL OFAC SDN Hydra Market address (1AdraFvB8Ads5KFFGZQUgYvuhMQVjUuk5j, RUSSIA-EO14024, listed 2022-04-05) and are laundered down a chain of single-input/two-output txs, each shedding a small 'peel' payment to a fresh deposit address while forwarding the larger change to the next hop. Only the Hydra address is a real SDN entry; all others are fictional placeholders.",
+  "transactions": [
+    {
+      "txid": "peel0",
+      "asset": "BTC",
+      "value": 10.0,
+      "timestamp": "2026-04-01T00:10:00Z",
+      "inputs": ["1AdraFvB8Ads5KFFGZQUgYvuhMQVjUuk5j"],
+      "outputs": ["1Peel0Deposit00000000000000000000aaaa", "1Change000000000000000000000000000hop1"]
+    },
+    {
+      "txid": "peel1",
+      "asset": "BTC",
+      "value": 9.4,
+      "timestamp": "2026-04-01T00:55:00Z",
+      "inputs": ["1Change000000000000000000000000000hop1"],
+      "outputs": ["1Peel1Deposit00000000000000000000bbbb", "1Change000000000000000000000000000hop2"]
+    },
+    {
+      "txid": "peel2",
+      "asset": "BTC",
+      "value": 8.9,
+      "timestamp": "2026-04-01T01:40:00Z",
+      "inputs": ["1Change000000000000000000000000000hop2"],
+      "outputs": ["1Peel2Deposit00000000000000000000cccc", "1Change000000000000000000000000000hop3"]
+    },
+    {
+      "txid": "peel3",
+      "asset": "BTC",
+      "value": 8.3,
+      "timestamp": "2026-04-01T02:25:00Z",
+      "inputs": ["1Change000000000000000000000000000hop3"],
+      "outputs": ["1Peel3Deposit00000000000000000000dddd", "1Change000000000000000000000000000hop4"]
+    },
+    {
+      "txid": "peel4",
+      "asset": "BTC",
+      "value": 7.8,
+      "timestamp": "2026-04-01T03:10:00Z",
+      "inputs": ["1Change000000000000000000000000000hop4"],
+      "outputs": ["1Peel4Deposit00000000000000000000eeee", "1Change000000000000000000000000000hop5"]
+    }
+  ]
+}

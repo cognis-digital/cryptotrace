@@ -1,0 +1,37 @@
+{
+  "_comment": "Synthetic BTC tx graph chaining TWO real OFAC SDN DPRK-linked mixers: Blender.io (bc1q2sttgr0vd4r88uxq7feu5g0r8z7q3qkq0r6yqr, DPRK3, listed 2022-05-06) and its successor Sinbad.io (bc1qs4dqj3x3pqr0z5fpmldtq3z0d6q5w2x5lj7qk0, DPRK3, listed 2023-11-29). Funds exit Blender.io, pass an intermediate hop, enter Sinbad.io, then split to two payout wallets. Both mixer addresses are real SDN entries; all others are fictional placeholders.",
+  "transactions": [
+    {
+      "txid": "blendout1",
+      "asset": "BTC",
+      "value": 20.0,
+      "timestamp": "2026-03-22T06:00:00Z",
+      "inputs": ["bc1q2sttgr0vd4r88uxq7feu5g0r8z7q3qkq0r6yqr"],
+      "outputs": ["1MixHop00000000000000000000000000aaaa1"]
+    },
+    {
+      "txid": "bridge1",
+      "asset": "BTC",
+      "value": 19.6,
+      "timestamp": "2026-03-22T18:20:00Z",
+      "inputs": ["1MixHop00000000000000000000000000aaaa1"],
+      "outputs": ["bc1qs4dqj3x3pqr0z5fpmldtq3z0d6q5w2x5lj7qk0"]
+    },
+    {
+      "txid": "sinbadout1",
+      "asset": "BTC",
+      "value": 9.7,
+      "timestamp": "2026-03-24T10:45:00Z",
+      "inputs": ["bc1qs4dqj3x3pqr0z5fpmldtq3z0d6q5w2x5lj7qk0"],
+      "outputs": ["1Payout00000000000000000000000000bbbb2"]
+    },
+    {
+      "txid": "sinbadout2",
+      "asset": "BTC",
+      "value": 9.6,
+      "timestamp": "2026-03-24T10:52:00Z",
+      "inputs": ["bc1qs4dqj3x3pqr0z5fpmldtq3z0d6q5w2x5lj7qk0"],
+      "outputs": ["1Payout00000000000000000000000000cccc3"]
+    }
+  ]
+}

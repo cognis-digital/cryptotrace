@@ -1,8 +1,0 @@
-[
-  {"src": "0x28c6c06298d514db089934071355e5743bf21d60", "dst": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "value": 12.5, "asset": "ETH", "txid": "tx1"},
-  {"src": "0x28c6c06298d514db089934071355e5743bf21d60", "dst": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "value": 3.0, "asset": "ETH", "txid": "tx2"},
-  {"src": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "dst": "0xcccccccccccccccccccccccccccccccccccccccc", "value": 15.0, "asset": "ETH", "txid": "tx3", "inputs": ["0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]},
-  {"src": "0xcccccccccccccccccccccccccccccccccccccccc", "dst": "0x722122df12d4e14e13ac3b6895a86e84145b6967", "value": 14.8, "asset": "ETH", "txid": "tx4"},
-  {"src": "0x722122df12d4e14e13ac3b6895a86e84145b6967", "dst": "0xdddddddddddddddddddddddddddddddddddddddd", "value": 14.7, "asset": "ETH", "txid": "tx5"},
-  {"src": "0xdddddddddddddddddddddddddddddddddddddddd", "dst": "0x098b716b8aaf21512996dc57eb0615e2383e2f96", "value": 14.6, "asset": "ETH", "txid": "tx6"}
-]
