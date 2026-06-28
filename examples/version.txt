@@ -1,0 +1,3 @@
+$ cryptotrace-emit --version
+
+cryptotrace 3.0.0

@@ -1,0 +1,23 @@
+$ cryptotrace-emit --help
+
+usage: cryptotrace [-h] [--version]
+                   {screen,cluster,taint,peel,check,sdn,feeds} ...
+
+OFAC sanctions screening, address clustering, tainted-flow tracking +
+laundering-pattern detection over a transaction list (defensive blockchain
+forensics).
+
+positional arguments:
+  {screen,cluster,taint,peel,check,sdn,feeds}
+    screen              full screen: OFAC hits, taint, clusters, patterns
+    cluster             cluster addresses into single-entity wallets
+    taint               propagate value-weighted taint from SDN sources
+    peel                detect peeling-chain laundering patterns
+    check               check a single address against the SDN/actor tables
+    sdn                 list the bundled OFAC SDN crypto addresses
+    feeds               ingest the live OFAC SDN list (catalog feed 'ofac-
+                        sdn')
+
+options:
+  -h, --help            show this help message and exit
+  --version             show program's version number and exit

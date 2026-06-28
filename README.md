@@ -20,6 +20,75 @@ pip install cognis-cryptotrace
 cryptotrace screen txs.json            # → prioritized findings in seconds
 ```
 
+
+<!-- cognis:example:start -->
+## 🔎 Example output
+
+Real, reproducible output from the tool — runs offline:
+
+```console
+$ cryptotrace-emit --version
+cryptotrace 3.0.0
+```
+
+```console
+$ cryptotrace-emit --help
+usage: cryptotrace [-h] [--version]
+                   {screen,cluster,taint,peel,check,sdn,feeds} ...
+
+OFAC sanctions screening, address clustering, tainted-flow tracking +
+laundering-pattern detection over a transaction list (defensive blockchain
+forensics).
+
+positional arguments:
+  {screen,cluster,taint,peel,check,sdn,feeds}
+    screen              full screen: OFAC hits, taint, clusters, patterns
+    cluster             cluster addresses into single-entity wallets
+    taint               propagate value-weighted taint from SDN sources
+    peel                detect peeling-chain laundering patterns
+    check               check a single address against the SDN/actor tables
+    sdn                 list the bundled OFAC SDN crypto addresses
+    feeds               ingest the live OFAC SDN list (catalog feed 'ofac-
+                        sdn')
+
+options:
+  -h, --help            show this help message and exit
+  --version             show program's version number and exit
+```
+
+> Blocks above are real `cryptotrace` output — reproduce them from a clone.
+
+**Sample result format** _(illustrative values — run on your own data for real findings):_
+
+```
+{
+"Findings": [
+    {
+        "id": "1234567890",
+        "title": "Suspicious Network Traffic",
+        "description": "Potential malicious activity detected on network port 443.",
+        "created": "2023-02-20T14:30:00Z",
+        "modified": "2023-02-20T14:30:00Z",
+        "labels": ["Network", "Suspicious"],
+        "objects": [
+            {
+                "id": "obj1",
+                "type": "ip",
+                "value": "192.0.2.1"
+            },
+            {
+                "id": "obj2",
+                "type": "port",
+                "value": 443
+            }
+        ]
+    }
+]
+}
+```
+
+<!-- cognis:example:end -->
+
 ## Usage — step by step
 
 1. **Install** the tool:
