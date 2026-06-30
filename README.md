@@ -270,6 +270,25 @@ python -m cryptotrace peel   demos/04-peel-chain-laundering/tx_graph.json
 python -m cryptotrace taint  demos/08-dprk-mixer-chain/tx_graph.json
 ```
 
+### Runnable, narrated walkthroughs — one per audience
+
+`demos/NN_name.py` drive the **real** cryptotrace API over those same bundled
+fixtures, narrate what each step means, run **offline**, and exit 0 — so they
+double as smoke tests (`tests/test_demos.py`). See [`docs/DEMOS.md`](docs/DEMOS.md).
+
+| # | Scenario | Audience | Exercises |
+|---|----------|----------|-----------|
+| 1 | [`01_investigator_triage.py`](demos/01_investigator_triage.py) | Crypto investigators / AML | `analyze` · direct hit · hop grading · taint |
+| 2 | [`02_exchange_compliance.py`](demos/02_exchange_compliance.py) | Exchanges / compliance | deposit-gate decision · exit codes · no over-flagging |
+| 3 | [`03_journalist_attribution.py`](demos/03_journalist_attribution.py) | Investigative journalists | entity attribution · value-weighted taint · reproducibility |
+| 4 | [`04_incident_response.py`](demos/04_incident_response.py) | Incident response / SOC | `detect_peel_chains` · SARIF 2.1.0 emit |
+| 5 | [`05_cluster_inheritance.py`](demos/05_cluster_inheritance.py) | AML / forensic analysts | clustering · common-input ownership · sanctions inheritance |
+
+```bash
+python demos/run_all.py                       # all five, end to end
+python demos/03_journalist_attribution.py     # or just one
+```
+
 <div align="right"><a href="#top">↑ back to top</a></div>
 
 <a name="architecture"></a>
@@ -277,9 +296,12 @@ python -m cryptotrace taint  demos/08-dprk-mixer-chain/tx_graph.json
 
 ```mermaid
 flowchart LR
-  IN[addresses + transactions] --> P[cryptotrace<br/>cluster + trace]
-  P --> OUT[sanctions xref / report]
+  IN["tx graph<br/>JSON / JSONL / stdin"] --> P["cryptotrace<br/>OFAC · cluster · taint · peel"]
+  SDN[("bundled + live<br/>OFAC SDN")] --> P
+  P --> OUT["report<br/>table · JSON · SARIF · exit code"]
 ```
+
+Full component breakdown and data model in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 <div align="right"><a href="#top">↑ back to top</a></div>
 
