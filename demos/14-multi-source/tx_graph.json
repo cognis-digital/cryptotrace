@@ -1,0 +1,8 @@
+{
+  "_comment": "A single export touching MULTIPLE distinct sanctioned entities at once — a consolidation wallet that received from both the Tornado Cash router (0x722122df12d4e14e13ac3b6895a86e84145b6967, CYBER2) and a Lazarus Group address (0x098b716b8aaf21512996dc57eb0615e2383e2f96, DPRK3), then fanned out. Demonstrates multi-source taint attribution: both SDN anchors surface as critical direct hits and both flows taint the consolidation node. All non-SDN addresses are fictional placeholders.",
+  "transactions": [
+    {"txid": "m0", "asset": "ETH", "value": 15.0, "inputs": ["0x722122df12d4e14e13ac3b6895a86e84145b6967"], "outputs": ["0xConsolidation00000000000000000aaaaa"]},
+    {"txid": "m1", "asset": "ETH", "value": 25.0, "inputs": ["0x098b716b8aaf21512996dc57eb0615e2383e2f96"], "outputs": ["0xConsolidation00000000000000000aaaaa"]},
+    {"txid": "m2", "asset": "ETH", "value": 40.0, "inputs": ["0xConsolidation00000000000000000aaaaa"], "outputs": ["0xFanoutA000000000000000000000000bbbbb", "0xFanoutB000000000000000000000000ccccc"]}
+  ]
+}

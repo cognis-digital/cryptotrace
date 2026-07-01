@@ -1,0 +1,10 @@
+{
+  "_comment": "Deliberately DIRTY export used to demonstrate cryptotrace's parser resilience: a scalar, a non-dict, a record missing inputs/outputs, garbage value tokens, and one genuine record carrying the real OFAC Tornado Cash router address. cryptotrace must skip the junk and still surface the SDN hit rather than crashing.",
+  "transactions": [
+    42,
+    "not-a-transaction",
+    {"txid": "no-io-record"},
+    {"txid": "bad-value", "inputs": ["0xSomeAddr000000000000000000000000dead"], "outputs": ["0xOther00000000000000000000000000beef"], "value": "not-a-number"},
+    {"txid": "real", "asset": "ETH", "value": 8.0, "inputs": ["0x722122df12d4e14e13ac3b6895a86e84145b6967"], "outputs": ["0xDownstream000000000000000000000fffff"]}
+  ]
+}

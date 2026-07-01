@@ -47,7 +47,7 @@ from dataclasses import dataclass, field
 from typing import Any, Iterable
 
 TOOL_NAME = "cryptotrace"
-TOOL_VERSION = "3.0.0"
+TOOL_VERSION = "3.1.0"
 
 # Severity ordering shared with the CLI (worst first when sorting desc).
 SEVERITY_ORDER = {"critical": 4, "high": 3, "medium": 2, "low": 1, "info": 0}
@@ -461,6 +461,29 @@ def _as_addr_list(value: Any) -> list[str]:
     return [a for a in out if a]
 
 
+def _coerce_value(raw: Any) -> float:
+    """Coerce a tx value/amount field into a clean, non-negative finite float.
+
+    Blockchain exports are messy: values arrive as strings, ``null``, negatives
+    (bad exports / signed deltas), or non-finite (``NaN``/``inf``) tokens that
+    would silently poison the taint arithmetic downstream. We normalise all of
+    those to a safe, finite, non-negative magnitude so a single malformed record
+    can never distort the dirty-value totals or produce ``NaN`` findings.
+    """
+    if raw is None:
+        return 0.0
+    try:
+        v = float(raw)
+    except (TypeError, ValueError):
+        return 0.0
+    # NaN / +-inf are non-finite: reject them (v != v is the NaN test).
+    if v != v or v in (float("inf"), float("-inf")):
+        return 0.0
+    # A transaction cannot move negative value; treat a negative export as its
+    # magnitude rather than silently letting it fall through to a 1.0 fallback.
+    return abs(v)
+
+
 def parse_txs(text: str) -> list[Transaction]:
     """Parse a JSON tx list (array or {"transactions":[...]}) or JSONL."""
     text = (text or "").strip()
@@ -496,10 +519,7 @@ def parse_txs(text: str) -> list[Transaction]:
             r.get("outputs") if "outputs" in r
             else (r.get("to") if "to" in r else r.get("vout")))
         asset = str(r.get("asset") or r.get("chain") or "BTC").upper()
-        try:
-            value = float(r.get("value", r.get("amount", 0)) or 0)
-        except (TypeError, ValueError):
-            value = 0.0
+        value = _coerce_value(r.get("value", r.get("amount", 0)))
         ts = str(r.get("timestamp") or r.get("time") or r.get("block_time") or "")
         txs.append(Transaction(txid, inputs, outputs, asset, value, ts))
     return txs
@@ -702,7 +722,12 @@ def propagate_taint(txs: list[Transaction],
 
     # Seed: a sanctioned source taints everything it sends.
     for tx in txs:
-        val = tx.value if tx.value > 0 else 1.0
+        # Guard the notional: a direct API caller can hand us a Transaction with
+        # a negative or non-finite value that never went through parse_txs. A
+        # non-positive/non-finite notional falls back to a neutral unit weight so
+        # taint fractions stay in [0, 1] and dirty totals never go NaN/negative.
+        v = tx.value
+        val = v if (v == v and v > 0 and v != float("inf")) else 1.0
         ins = [_norm_addr(a) for a in tx.inputs if a]
         outs = [_norm_addr(a) for a in tx.outputs if a]
         if not outs:
@@ -797,7 +822,16 @@ def analyze(txs: list[Transaction], max_hops: int = 2,
 
     `taint_threshold` suppresses indirect/taint findings below that taint
     fraction (0.0 = report everything).
+
+    Raises ``ValueError`` on an out-of-range ``taint_threshold`` (it is a
+    fraction and must lie in [0, 1]); a negative ``max_hops`` is clamped to 0
+    (no hop tracing) rather than raising, matching ``_hop_distances``.
     """
+    if not 0.0 <= taint_threshold <= 1.0:
+        raise ValueError(
+            f"taint_threshold must be a fraction in [0, 1], got {taint_threshold!r}")
+    if max_hops < 0:
+        max_hops = 0
     txs = list(txs)
     all_addrs: set[str] = set()
     for tx in txs:

@@ -1,0 +1,19 @@
+{
+  "_comment": "Esplora/blockchain-explorer style export: inputs/outputs are OBJECTS with prev_addr / scriptpubkey_address keys, and txids come in as 'hash'. cryptotrace's parser coerces these to its Transaction model. The single real SDN entry is the Hydra Market address (1AdraFvB8Ads5KFFGZQUgYvuhMQVjUuk5j, RUSSIA-EO14024); all others are fictional placeholders.",
+  "transactions": [
+    {
+      "hash": "e0",
+      "chain": "btc",
+      "value": 4.0,
+      "vin": [{"prev_addr": "1AdraFvB8Ads5KFFGZQUgYvuhMQVjUuk5j"}],
+      "vout": [{"scriptpubkey_address": "1ExplorerHop0000000000000000000aaaaa"}]
+    },
+    {
+      "hash": "e1",
+      "chain": "btc",
+      "value": 4.0,
+      "vin": [{"address": "1ExplorerHop0000000000000000000aaaaa"}],
+      "vout": [{"address": "1ExplorerCashout0000000000000000bbbbb"}]
+    }
+  ]
+}

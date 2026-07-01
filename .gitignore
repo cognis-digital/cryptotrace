@@ -6,5 +6,9 @@ build/
 .pytest_cache/
 *.html
 !demos/**
+# ...but never commit compiled bytecode, even under demos/ (the !demos/** rule
+# above would otherwise re-include it).
+demos/**/__pycache__/
+*.pyc
 
 media/walkthrough.mp4

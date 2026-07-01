@@ -1,0 +1,3 @@
+{"txid":"j0","asset":"ETH","value":12.0,"timestamp":"2026-05-01T00:00:00Z","inputs":["0x722122df12d4e14e13ac3b6895a86e84145b6967"],"outputs":["0xVictimReceives0000000000000000000aaaa"]}
+{"txid":"j1","asset":"ETH","value":12.0,"timestamp":"2026-05-01T00:20:00Z","inputs":["0xVictimReceives0000000000000000000aaaa"],"outputs":["0xLayer1Hop00000000000000000000000bbbb"]}
+{"txid":"j2","asset":"ETH","value":12.0,"timestamp":"2026-05-01T00:40:00Z","inputs":["0xLayer1Hop00000000000000000000000bbbb"],"outputs":["0xCashoutDeposit000000000000000000cccc"]}
