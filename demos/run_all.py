@@ -18,6 +18,21 @@ SCENARIOS = [
     "03_journalist_attribution",
     "04_incident_response",
     "05_cluster_inheritance",
+    "06_sarif_pipeline",
+    "07_feed_enrichment",
+    "08_taint_dilution",
+    "09_garantex_cashout",
+    "10_false_positive_audit",
+    "11_multi_source_attribution",
+    "12_cluster_risk_scoring",
+    "13_jsonl_streaming",
+    "14_explorer_ingest",
+    "15_malformed_resilience",
+    "16_negative_export_hardening",
+    "17_triple_export",
+    "18_peel_chain_forensics",
+    "19_single_address_check",
+    "20_connect_emit",
 ]
 
 

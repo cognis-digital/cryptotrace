@@ -25,8 +25,18 @@ DEMOS_DIR = os.path.join(REPO_ROOT, "demos")
 
 
 def fixture(scenario: str) -> str:
-    """Absolute path to a bundled scenario tx_graph.json."""
-    return os.path.join(DEMOS_DIR, scenario, "tx_graph.json")
+    """Absolute path to a bundled scenario fixture.
+
+    Prefers ``tx_graph.json`` but falls back to ``tx_graph.jsonl`` so JSONL
+    streaming scenarios work through the same helper.
+    """
+    base = os.path.join(DEMOS_DIR, scenario)
+    for name in ("tx_graph.json", "tx_graph.jsonl"):
+        path = os.path.join(base, name)
+        if os.path.exists(path):
+            return path
+    # default to the .json path (open() will raise a clear FileNotFoundError)
+    return os.path.join(base, "tx_graph.json")
 
 
 def load(scenario: str) -> list[Transaction]:

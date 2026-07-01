@@ -1,0 +1,7 @@
+{
+  "_comment": "Export with signed/negative value fields (a real hazard: some accounting exports emit signed deltas, and a naive parser once let a negative silently become a neutral unit weight, distorting dirty-value totals). cryptotrace normalises each value to its finite, non-negative magnitude so the taint arithmetic stays sound. The real SDN entry is the Lazarus Group (DPRK) address 0x098b716b8aaf21512996dc57eb0615e2383e2f96 (DPRK3).",
+  "transactions": [
+    {"txid": "n0", "asset": "ETH", "value": -20.0, "inputs": ["0x098b716b8aaf21512996dc57eb0615e2383e2f96"], "outputs": ["0xNegExportMid00000000000000000011111"]},
+    {"txid": "n1", "asset": "ETH", "value": -20.0, "inputs": ["0xNegExportMid00000000000000000011111"], "outputs": ["0xNegExportEnd00000000000000000022222"]}
+  ]
+}

@@ -37,7 +37,7 @@ Real, reproducible output from the tool — runs offline:
 
 ```console
 $ cryptotrace-emit --version
-cryptotrace 3.0.0
+cryptotrace 3.1.0
 ```
 
 ```console

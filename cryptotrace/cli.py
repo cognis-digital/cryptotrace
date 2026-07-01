@@ -104,8 +104,12 @@ def _cmd_screen(args: argparse.Namespace) -> int:
         print(f"error: cannot read tx file: {exc}", file=sys.stderr)
         return 2
     _enrich_from_feed(args)
-    res = analyze(parse_txs(text), max_hops=args.max_hops,
-                  taint_threshold=args.min_taint)
+    try:
+        res = analyze(parse_txs(text), max_hops=args.max_hops,
+                      taint_threshold=args.min_taint)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
 
     if args.format == "json":
         out = json.dumps(res.to_dict(), indent=2)
@@ -157,6 +161,10 @@ def _cmd_taint(args: argparse.Namespace) -> int:
         text = _read(args.txfile)
     except OSError as exc:
         print(f"error: cannot read tx file: {exc}", file=sys.stderr)
+        return 2
+    if not 0.0 <= args.min_taint <= 1.0:
+        print(f"error: --min-taint must be a fraction in [0, 1], "
+              f"got {args.min_taint}", file=sys.stderr)
         return 2
     txs = parse_txs(text)
     all_addrs: set[str] = set()
